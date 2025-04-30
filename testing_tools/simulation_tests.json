@@ -1,0 +1,131 @@
+[
+  {
+    "test_id": "simple_bolt_kill",
+    "description": "Casts Lightning Bolt targeting a 3-toughness creature and expects it in the graveyard.",
+    "setup": {
+      "players": ["Alice", "Bob"],
+      "zones": {
+        "hand": [
+          ["Lightning Bolt"],
+          []
+        ],
+        "battlefield": [
+          [],
+          ["Grizzly Bears"]
+        ],
+        "graveyard": [
+          [], []
+        ]
+      },
+      "actions": [
+        { "type": "cast", "player": 0, "card": "Lightning Bolt", "target": "Grizzly Bears" },
+        { "type": "pass_priority" }
+      ]
+    },
+    "expected_state": {
+      "graveyard_contains": ["Grizzly Bears"],
+      "player1_life": 20,
+      "player0_life": 20
+    }
+  },
+  {
+    "test_id": "etb_trigger_lifeloss_draw",
+    "description": "Preacher of the Schism attacks and triggers draw/lifeloss effect due to life total advantage.",
+    "setup": {
+      "players": ["Player A", "Player B"],
+      "zones": {
+        "battlefield": [
+          ["Preacher of the Schism"],
+          []
+        ],
+        "hand": [[], []],
+        "graveyard": [[], []]
+      },
+      "life_totals": [22, 20],
+      "actions": [
+        { "type": "declare_attackers", "player": 0, "attackers": ["Preacher of the Schism"] },
+        { "type": "pass_priority" }
+      ]
+    },
+    "expected_state": {
+      "hand_count": 1,
+      "player0_life": 21,
+      "player1_life": 20
+    }
+  },
+  {
+  "test_id": "cryptic_command_counter_and_draw",
+  "description": "Cast Cryptic Command choosing 'Counter target spell' and 'Draw a card'.",
+  "setup": {
+    "players": ["A", "B"],
+    "zones": {
+      "hand": [
+        ["Cryptic Command"],
+        ["Shock"]
+      ],
+      "stack": [[], []]
+    },
+    "actions": [
+      { "type": "cast", "player": 1, "card": "Shock", "target": "Player A" },
+      { "type": "cast_modal", "player": 0, "card": "Cryptic Command", "modes": ["counter", "draw"], "target": "Shock" },
+      { "type": "pass_priority" }
+    ]
+  },
+  "expected_state": {
+    "graveyard_contains": ["Shock", "Cryptic Command"],
+    "hand_count": 1,
+    "stack_empty": true
+  }
+},
+{
+  "test_id": "solemn_death_draw",
+  "description": "Solemn Simulacrum dies and triggers a draw effect.",
+  "setup": {
+    "players": ["P1", "P2"],
+    "zones": {
+      "battlefield": [
+        ["Solemn Simulacrum"],
+        []
+      ],
+      "hand": [[], []],
+      "graveyard": [[], []]
+    },
+    "actions": [
+      { "type": "cast", "player": 1, "card": "Lightning Bolt", "target": "Solemn Simulacrum" },
+      { "type": "pass_priority" }
+    ]
+  },
+  "expected_state": {
+    "graveyard_contains": ["Solemn Simulacrum"],
+    "hand_count": 1
+  }
+},
+{
+  "test_id": "chasm_skulker_death_triggers_tokens",
+  "description": "Chasm Skulker dies with 3 +1/+1 counters and makes 3 1/1 Squid tokens.",
+  "setup": {
+    "players": ["Alpha", "Beta"],
+    "zones": {
+      "battlefield": [
+        ["Chasm Skulker"],
+        []
+      ],
+      "graveyard": [[], []]
+    },
+    "counters": {
+      "Chasm Skulker": { "+1/+1": 3 }
+    },
+    "actions": [
+      { "type": "cast", "player": 1, "card": "Doom Blade", "target": "Chasm Skulker" },
+      { "type": "pass_priority" }
+    ]
+  },
+  "expected_state": {
+    "graveyard_contains": ["Chasm Skulker"],
+    "battlefield_tokens": [
+      { "name": "Squid", "count": 3, "power": 1, "toughness": 1 }
+    ]
+  }
+}
+
+]

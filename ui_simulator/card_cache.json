@@ -1,0 +1,17 @@
+{
+  "Island": {
+    "oracle_text": "({T}: Add {U}.)",
+    "type_line": "Basic Land \u2014 Island",
+    "mana_cost": ""
+  },
+  "Lightning Bolt": {
+    "oracle_text": "Lightning Bolt deals 3 damage to any target.",
+    "type_line": "Instant",
+    "mana_cost": "{R}"
+  },
+  "Grizzly Bears": {
+    "oracle_text": "",
+    "type_line": "Creature \u2014 Bear",
+    "mana_cost": "{1}{G}"
+  }
+}

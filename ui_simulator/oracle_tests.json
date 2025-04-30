@@ -1,0 +1,41 @@
+[
+  {
+    "card_name": "Lightning Bolt",
+    "oracle_text": "Lightning Bolt deals 3 damage to any target.",
+    "expected_output": {
+      "effect_chain": [
+        { "action": "deal_damage", "amount": 3, "target": "any" }
+      ],
+      "conditions": [],
+      "modifiers": [],
+      "targets": {},
+      "zones": []
+    }
+  },
+  {
+    "card_name": "Divination",
+    "oracle_text": "Draw two cards.",
+    "expected_output": {
+      "effect_chain": [
+        { "action": "draw_card", "amount": 2 }
+      ],
+      "conditions": [],
+      "modifiers": [],
+      "targets": {},
+      "zones": []
+    }
+  },
+  {
+    "card_name": "Doom Blade",
+    "oracle_text": "Destroy target nonblack creature.",
+    "expected_output": {
+      "effect_chain": [
+        { "action": "destroy", "target": "nonblack_creature" }
+      ],
+      "conditions": [],
+      "modifiers": [],
+      "targets": {},
+      "zones": []
+    }
+  }
+]

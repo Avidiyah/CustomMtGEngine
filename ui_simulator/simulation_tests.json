@@ -1,0 +1,76 @@
+[
+  {
+    "test_id": "bolt_kills_bears",
+    "description": "Lightning Bolt kills Grizzly Bears and sends it to the graveyard.",
+    "setup": {
+      "players": ["Player A", "Player B"],
+      "zones": {
+        "hand": [
+          ["Lightning Bolt"],
+          []
+        ],
+        "battlefield": [
+          [],
+          ["Grizzly Bears"]
+        ],
+        "graveyard": [
+          [],
+          []
+        ]
+      },
+      "actions": [
+        {
+          "type": "cast",
+          "player": 0,
+          "card": "Lightning Bolt",
+          "target": "Grizzly Bears"
+        },
+        {
+          "type": "pass_priority"
+        }
+      ]
+    },
+    "expected_state": {
+      "graveyard_contains": ["Grizzly Bears"],
+      "player0_life": 20,
+      "player1_life": 20
+    }
+  },
+  {
+    "test_id": "preacher_trigger_draw",
+    "description": "Preacher of the Schism attacks with highest life total and draws a card.",
+    "setup": {
+      "players": ["Player A", "Player B"],
+      "zones": {
+        "battlefield": [
+          ["Preacher of the Schism"],
+          []
+        ],
+        "hand": [
+          [],
+          []
+        ],
+        "graveyard": [
+          [],
+          []
+        ]
+      },
+      "life_totals": [22, 20],
+      "actions": [
+        {
+          "type": "declare_attackers",
+          "player": 0,
+          "attackers": ["Preacher of the Schism"]
+        },
+        {
+          "type": "pass_priority"
+        }
+      ]
+    },
+    "expected_state": {
+      "hand_count": 1,
+      "player0_life": 21,
+      "player1_life": 20
+    }
+  }
+]

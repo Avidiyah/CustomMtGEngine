@@ -1,0 +1,117 @@
+{
+  "invoke despair": {
+    "oracle_text": "Target opponent sacrifices a creature of their choice. If they can't, they lose 2 life and you draw a card. Then repeat this process for an enchantment and a planeswalker.",
+    "type_line": "Sorcery",
+    "mana_cost": "{1}{B}{B}{B}{B}"
+  },
+  "opt": {
+    "oracle_text": "Scry 1. (Look at the top card of your library. You may put that card on the bottom.)\nDraw a card.",
+    "type_line": "Instant",
+    "mana_cost": "{U}"
+  },
+  "the eternal wanderer": {
+    "oracle_text": "No more than one creature can attack The Eternal Wanderer each combat.\n+1: Exile up to one target artifact or creature. Return that card to the battlefield under its owner's control at the beginning of that player's next end step.\n0: Create a 2/2 white Samurai creature token with double strike.\n\u22124: For each player, choose a creature that player controls. Each player sacrifices all creatures they control not chosen this way.",
+    "type_line": "Legendary Planeswalker",
+    "mana_cost": "{4}{W}{W}"
+  },
+  "preacher of the schism": {
+    "oracle_text": "Deathtouch\nWhenever this creature attacks the player with the most life or tied for most life, create a 1/1 white Vampire creature token with lifelink.\nWhenever this creature attacks while you have the most life or are tied for most life, you draw a card and you lose 1 life.",
+    "type_line": "Creature \u2014 Vampire Cleric",
+    "mana_cost": "{2}{B}"
+  },
+  "bladebrand": {
+    "oracle_text": "Target creature gains deathtouch until end of turn.\nDraw a card.",
+    "type_line": "Instant",
+    "mana_cost": "{1}{B}"
+  },
+  "glorybringer": {
+    "oracle_text": "Flying, haste\nYou may exert this creature as it attacks. When you do, it deals 4 damage to target non-Dragon creature an opponent controls. (An exerted creature won't untap during your next untap step.)",
+    "type_line": "Creature \u2014 Dragon",
+    "mana_cost": "{3}{R}{R}"
+  },
+  "dream trawler": {
+    "oracle_text": "Flying, lifelink\nWhenever you draw a card, this creature gets +1/+0 until end of turn.\nWhenever this creature attacks, draw a card.\nDiscard a card: This creature gains hexproof until end of turn. Tap it.",
+    "type_line": "Creature \u2014 Sphinx",
+    "mana_cost": "{2}{W}{W}{U}{U}"
+  },
+  "archfiend of ifnir": {
+    "oracle_text": "Flying\nWhenever you cycle or discard another card, put a -1/-1 counter on each creature your opponents control.\nCycling {2} ({2}, Discard this card: Draw a card.)",
+    "type_line": "Creature \u2014 Demon",
+    "mana_cost": "{3}{B}{B}"
+  },
+  "cathartic reunion": {
+    "oracle_text": "As an additional cost to cast this spell, discard two cards.\nDraw three cards.",
+    "type_line": "Sorcery",
+    "mana_cost": "{1}{R}"
+  },
+  "fable of the mirror-breaker": {
+    "oracle_text": "",
+    "type_line": "Enchantment \u2014 Saga // Enchantment Creature \u2014 Goblin Shaman",
+    "mana_cost": ""
+  },
+  "teferi, hero of dominaria": {
+    "oracle_text": "+1: Draw a card. At the beginning of the next end step, untap up to two lands.\n\u22123: Put target nonland permanent into its owner's library third from the top.\n\u22128: You get an emblem with \"Whenever you draw a card, exile target permanent an opponent controls.\"",
+    "type_line": "Legendary Planeswalker \u2014 Teferi",
+    "mana_cost": "{3}{W}{U}"
+  },
+  "soul warden": {
+    "oracle_text": "Whenever another creature enters, you gain 1 life.",
+    "type_line": "Creature \u2014 Human Cleric",
+    "mana_cost": "{W}"
+  },
+  "sign in blood": {
+    "oracle_text": "Target player draws two cards and loses 2 life.",
+    "type_line": "Sorcery",
+    "mana_cost": "{B}{B}"
+  },
+  "elderfang disciple": {
+    "oracle_text": "When this creature enters, each opponent discards a card.",
+    "type_line": "Creature \u2014 Elf Cleric",
+    "mana_cost": "{1}{B}"
+  },
+  "yarok's fenlurker": {
+    "oracle_text": "When this creature enters, each opponent exiles a card from their hand.\n{2}{B}: This creature gets +1/+1 until end of turn.",
+    "type_line": "Creature \u2014 Horror",
+    "mana_cost": "{B}{B}"
+  },
+  "nissa's triumph": {
+    "oracle_text": "Search your library for up to two basic Forest cards. If you control a Nissa planeswalker, instead search your library for up to three land cards. Reveal those cards, put them into your hand, then shuffle.",
+    "type_line": "Sorcery",
+    "mana_cost": "{G}{G}"
+  },
+  "fungal infection": {
+    "oracle_text": "Target creature gets -1/-1 until end of turn. Create a 1/1 green Saproling creature token.",
+    "type_line": "Instant",
+    "mana_cost": "{B}"
+  },
+  "Opt": {
+    "oracle_text": "Scry 1. (Look at the top card of your library. You may put that card on the bottom.)\nDraw a card.",
+    "type_line": "Instant",
+    "mana_cost": "{U}"
+  },
+  "Sign in Blood": {
+    "oracle_text": "Target player draws two cards and loses 2 life.",
+    "type_line": "Sorcery",
+    "mana_cost": "{B}{B}"
+  },
+  "Soul Warden": {
+    "oracle_text": "Whenever another creature enters, you gain 1 life.",
+    "type_line": "Creature \u2014 Human Cleric",
+    "mana_cost": "{W}"
+  },
+  "Preacher of the Schism": {
+    "oracle_text": "Deathtouch\nWhenever this creature attacks the player with the most life or tied for most life, create a 1/1 white Vampire creature token with lifelink.\nWhenever this creature attacks while you have the most life or are tied for most life, you draw a card and you lose 1 life.",
+    "type_line": "Creature \u2014 Vampire Cleric",
+    "mana_cost": "{2}{B}"
+  },
+  "Goblin Warchief": {
+    "oracle_text": "Goblin spells you cast cost {1} less to cast.\nGoblins you control have haste.",
+    "type_line": "Creature \u2014 Goblin Warrior",
+    "mana_cost": "{1}{R}{R}"
+  },
+  "Island": {
+    "oracle_text": "({T}: Add {U}.)",
+    "type_line": "Basic Land \u2014 Island",
+    "mana_cost": ""
+  }
+}

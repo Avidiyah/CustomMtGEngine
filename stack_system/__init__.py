@@ -1,7 +1,21 @@
 # === stack_system Anchor Module ===
 
-from .Stack import Stack
-from .Spell import Spell
-from .ActivatedAbility import ActivatedAbility
+from .stack_engine import (
+    StackEngine,
+    StackObject,
+    Spell,
+    ActivatedAbility,
+    TriggeredAbility,
+)
 from .TriggerEngine import TriggerEngine
 from .CombatEngine import CombatEngine
+
+__all__ = [
+    "StackEngine",
+    "StackObject",
+    "Spell",
+    "ActivatedAbility",
+    "TriggeredAbility",
+    "TriggerEngine",
+    "CombatEngine",
+]

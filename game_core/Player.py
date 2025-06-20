@@ -1,5 +1,5 @@
 from game_core.ManaPool import ManaPool
-from stack_system.Spell import Spell
+from stack_system import Spell
 
 class Player:
     def __init__(self, name):

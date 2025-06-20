@@ -24,7 +24,7 @@ class OracleExecutionTestSuite:
     def setup_game(test_case):
         players = [Player(name=n) for n in test_case.get("players", ["Player A", "Player B"])]
         phase_manager = PhaseManager()
-        stack = Stack()
+        stack = StackEngine()
         trigger_engine = TriggerEngine()
 
         gm = GameManager(players, stack, phase_manager, trigger_engine)

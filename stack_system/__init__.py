@@ -8,7 +8,7 @@ from .stack_engine import (
     TriggeredAbility,
 )
 from .TriggerEngine import TriggerEngine
-from .CombatEngine import CombatEngine
+from engine.combat_engine import CombatEngine
 
 __all__ = [
     "StackEngine",

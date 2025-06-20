@@ -3,7 +3,7 @@ from .PhaseManager import PhaseManager
 from .PriorityManager import PriorityManager
 from stack_system.TriggerEngine import TriggerEngine
 from .StateBasedActions import StateBasedActions
-from stack_system.Stack import Stack
+from stack_system import StackEngine
 
 
 from .StateMemoryTracker import StateMemoryTracker
@@ -18,6 +18,10 @@ class GameManager:
         self.stack = stack
         self.turn_player_index = 0
         self.headless_mode = headless
+
+    def resolve_stack(self) -> str:
+        """Convenience wrapper to resolve the top of the stack."""
+        return self.stack.resolve_top(self)
 
     def current_player(self):
         return self.players[self.turn_player_index]
@@ -43,7 +47,7 @@ class GameManager:
             if self.priority_manager.both_players_passed():
                 if not self.stack.is_empty():
                     print("Resolving top of stack...")
-                    print(self.stack.resolve_next())
+                    print(self.stack.resolve_top(game_state))
                     self.trigger_engine.check_and_push(game_state, self.stack)
                     self.state_based_actions.check_and_apply(game_state)
                     self.priority_manager.reset()
@@ -58,7 +62,7 @@ class GameManager:
             if self.priority_manager.pass_priority():
                 if not self.stack.is_empty():
                     print("Resolving top of stack...")
-                    print(self.stack.resolve_next())
+                    print(self.stack.resolve_top(game_state))
                     self.trigger_engine.check_and_push(game_state, self.stack)
                     self.state_based_actions.check_and_apply(game_state)
                     self.priority_manager.reset()

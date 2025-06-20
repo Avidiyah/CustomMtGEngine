@@ -16,19 +16,14 @@ from .Tokenizer import Token, TokenType, Tokenizer
 from .TriggerClauseParser import TriggerClauseParser
 from .ConditionClauseParser import ConditionClauseParser
 from .OracleParser import EffectIR
+from .RuleLexicon import STATIC_KEYWORDS as KEYWORD_ABILITIES
+
 
 # ---------------------------------------------------------------------------
 # Shared constants and helper parsing functions
 # ---------------------------------------------------------------------------
 
 COLORS = ["white", "blue", "black", "red", "green"]
-
-KEYWORD_ABILITIES = [
-    "flying", "vigilance", "haste", "deathtouch", "trample",
-    "first strike", "double strike", "lifelink", "hexproof",
-    "indestructible", "menace", "ward", "reach", "protection",
-]
-
 
 def parse_create_token_phrase(text: str) -> Dict[str, Any]:
     token = {

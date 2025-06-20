@@ -1,6 +1,6 @@
 # === Spell.py (Patched for Oracle Behavior Trees) ===
 
-from data_layer.CardComponent import CardComponent
+from ..data_layer import CardComponent
 from effect_execution.EffectInterpreter import EffectInterpreter
 
 class Spell(CardComponent):

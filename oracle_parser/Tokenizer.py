@@ -44,58 +44,56 @@ class Token:
         return f"Token(type={self.type}, value={self.value}, metadata={self.metadata})"
 
 # Tokenizer class
+from .rule_lexicon import (
+    TRIGGER_WORDS,
+    CONDITION_WORDS,
+    ACTION_WORDS,
+    TARGETING_WORDS,
+    ZONE_WORDS,
+    TIMING_WORDS,
+    STATIC_KEYWORDS,
+    ARTICLES_INDEFINITE,
+    ARTICLES_DEFINITE,
+    PRONOUNS_SUBJECT,
+    PRONOUNS_POSSESSIVE,
+    QUANTIFIERS,
+    VERBS_CONTROL,
+    VERBS_STATE,
+    VERBS_BE,
+    MODAL_VERBS,
+    PREPOSITIONS,
+    TEMPORAL_MODIFIERS,
+    NOUN_PLAYER_ROLES,
+    RESOURCE_TERMS,
+    OBJECT_TERMS,
+    EFFECT_TERMS,
+)
+
+
 class Tokenizer:
     def __init__(self):
-        self.trigger_words = [
-            "when", "whenever", "at the beginning of", "at end of combat",
-            "at the start of your upkeep", "at the end of your turn", "at your end step"
-        ]
-        self.condition_words = [
-            "if", "unless", "as long as", "until", "during", "instead", "after", "before", "whilst"
-        ]
-        self.articles_indefinite = ["a", "an"]
-        self.articles_definite = ["the"]
-        self.pronouns_subject = ["you", "they"]
-        self.pronouns_possessive = ["your", "their"]
-        self.quantifiers = ["each", "any", "one", "all", "up to"]
-        self.verbs_control = ["control", "controls"]
-        self.verbs_state = ["has", "have"]
-        self.verbs_be = ["is", "are", "was", "were"]
-        self.modal_verbs = ["choose", "may", "must", "can", "shall", "could"]
-        self.prepositions = ["of", "with", "without"]
-        self.temporal_modifiers = ["during", "before", "after"]
-        self.noun_player_roles = ["opponent", "player"]
-        self.resource_terms = ["life", "mana", "damage", "counter", "token"]
-        self.object_terms = ["card", "spell", "permanent", "player", "ability", "emblem"]
-        self.effect_terms = ["gain", "lose", "prevent", "add", "remove", "create", "destroy"]
-        self.action_words = [
-            "draw", "discard", "destroy", "exile", "tap", "untap", "create", "gain", "lose",
-            "search", "reveal", "return", "counter", "sacrifice", "sacrifices", "pay", "cast", "attack",
-            "block", "equip", "enchant", "flip", "mill", "venture", "explore", "investigate",
-            "amass", "fight", "adapt", "proliferate", "scry", "connive"
-        ]
-        self.targeting_words = [
-            "target", "choose", "each", "any", "up to", "each opponent", "each player",
-            "each creature", "opponent", "player", "planeswalker", "artifact",
-            "enchantment", "creature", "land", "spell", "permanent", "nonland",
-            "nontoken", "noncreature", "nonartifact"
-        ]
-        self.zone_references = [
-            "battlefield", "graveyard", "exile", "library", "hand", "stack", "command zone"
-        ]
-        self.timing_modifiers = [
-            "only as a sorcery", "instant speed", "during your upkeep", "during combat",
-            "end of turn", "before damage", "after blockers are declared", "at any time"
-        ]
-        self.ability_keywords = [
-            "flying", "first strike", "double strike", "deathtouch", "lifelink",
-            "vigilance", "trample", "hexproof", "menace", "ward", "indestructible",
-            "protection", "haste", "reach"
-        ]
-        self.quantifiers += [
-            "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten", "x",
-            "any number", "at least", "no more than"
-        ]
+        self.trigger_words = list(TRIGGER_WORDS)
+        self.condition_words = list(CONDITION_WORDS)
+        self.articles_indefinite = list(ARTICLES_INDEFINITE)
+        self.articles_definite = list(ARTICLES_DEFINITE)
+        self.pronouns_subject = list(PRONOUNS_SUBJECT)
+        self.pronouns_possessive = list(PRONOUNS_POSSESSIVE)
+        self.quantifiers = list(QUANTIFIERS)
+        self.verbs_control = list(VERBS_CONTROL)
+        self.verbs_state = list(VERBS_STATE)
+        self.verbs_be = list(VERBS_BE)
+        self.modal_verbs = list(MODAL_VERBS)
+        self.prepositions = list(PREPOSITIONS)
+        self.temporal_modifiers = list(TEMPORAL_MODIFIERS)
+        self.noun_player_roles = list(NOUN_PLAYER_ROLES)
+        self.resource_terms = list(RESOURCE_TERMS)
+        self.object_terms = list(OBJECT_TERMS)
+        self.effect_terms = list(EFFECT_TERMS)
+        self.action_words = list(ACTION_WORDS)
+        self.targeting_words = list(TARGETING_WORDS)
+        self.zone_references = list(ZONE_WORDS)
+        self.timing_modifiers = list(TIMING_WORDS)
+        self.ability_keywords = list(STATIC_KEYWORDS)
 
     def tokenize(self, text):
         text = text.lower()

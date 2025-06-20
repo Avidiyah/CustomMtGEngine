@@ -1,9 +1,9 @@
 import json
 from game_core import GameManager
-from data_layer import CardDataManager
+from ..data_layer import CardDataManager
 from game_core import PhaseManager, Player
 from stack_system import Stack, TriggerEngine
-from data_layer.Card import Card
+from ..data_layer import Card
 
 class OracleExecutionTestSuite:
     @staticmethod

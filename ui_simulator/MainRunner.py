@@ -1,7 +1,7 @@
 
 from ui_simulator import Simulator
 from game_core import Player, GameManager, PhaseManager, PriorityManager, StateBasedActions
-from stack_system import Stack, TriggerEngine
+from stack_system import StackEngine, TriggerEngine
 
 
 
@@ -14,7 +14,7 @@ def setup_game(headless=False):
     if headless:
         return Simulator(headless=True)
     else:
-        stack = Stack()
+        stack = StackEngine()
         phase_manager = PhaseManager()
         trigger_engine = TriggerEngine()
         priority_manager = PriorityManager(players[0], players[1])

@@ -1,6 +1,6 @@
 # === Simulator.py ===
 
-from data_layer import Card
+from ..data_layer import Card
 from oracle_parser import OracleParserPipeline
 from stack_system import TriggerEngine, Stack
 from game_core import PhaseManager, Player, GameManager, PriorityManager, StateBasedActions, ZoneManager

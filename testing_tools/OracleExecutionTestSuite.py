@@ -2,7 +2,7 @@ import json
 from game_core import GameManager
 from ..data_layer import CardDataManager
 from game_core import PhaseManager, Player
-from stack_system import Stack, TriggerEngine
+from stack_system import StackEngine, TriggerEngine
 from ..data_layer import Card
 
 class OracleExecutionTestSuite:

@@ -2,7 +2,7 @@
 
 from ..data_layer import Card
 from oracle_parser import OracleParserPipeline
-from stack_system import TriggerEngine, Stack
+from stack_system import TriggerEngine, StackEngine
 from game_core import PhaseManager, Player, GameManager, PriorityManager, StateBasedActions, ZoneManager
 from ui_simulator import GameUI
 
@@ -10,7 +10,7 @@ from ui_simulator import GameUI
 class Simulator:
     def __init__(self, headless=False):
         self.headless = headless
-        self.stack = Stack()
+        self.stack = StackEngine()
         self.phase_manager = PhaseManager()
         self.trigger_engine = TriggerEngine()
         self.players = [Player(name="Player 1"), Player(name="Player 2")]

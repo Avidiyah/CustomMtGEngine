@@ -1,6 +1,6 @@
 # === ActivatedAbility ===
 
-from data_layer import CardComponent
+from ..data_layer import CardComponent
 
 class ActivatedAbility(CardComponent):
     def __init__(self, cost, effect):

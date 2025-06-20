@@ -1,7 +1,7 @@
 # === Spell.py (Patched for Oracle Behavior Trees) ===
 
 from ..data_layer import CardComponent
-from effect_execution.EffectInterpreter import EffectInterpreter
+from effect_execution import EffectEngine, EffectContext
 
 class Spell(CardComponent):
     def __init__(self, card, controller):
@@ -10,7 +10,7 @@ class Spell(CardComponent):
         """
         self.card = card
         self.controller = controller
-        self.interpreter = EffectInterpreter()
+        self.engine = EffectEngine()
 
     def on_play(self, game_state):
         """
@@ -18,7 +18,8 @@ class Spell(CardComponent):
         """
         print(f"[Spell] Resolving {self.card.name} by Oracle behavior.")
 
-        result = self.interpreter.execute(self.card, self.controller, game_state)
-
+        context = EffectContext(source=self.card, controller=self.controller, game_state=game_state)
+        result = self.engine.execute(self.card.behavior_tree, context)
+        
         print(f"[Spell] Result: {result}")
         return result

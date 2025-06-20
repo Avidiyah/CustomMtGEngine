@@ -1,0 +1,392 @@
+from __future__ import annotations
+
+"""EffectRegistry module.
+
+This registry maps Oracle text fragments into effect templates and
+compiles tokenized phrases into :class:`EffectIR` objects. It merges the
+phrase dictionary from ``EffectPhraseRegistry`` with the AST compiler
+originally found in ``oracle_ast_compiler_clean``.
+"""
+
+import re
+from dataclasses import dataclass
+from typing import Any, Dict, List, Optional
+
+from .Tokenizer import Token, TokenType, Tokenizer
+from .TriggerClauseParser import TriggerClauseParser
+from .ConditionClauseParser import ConditionClauseParser
+from .OracleParser import EffectIR
+
+# ---------------------------------------------------------------------------
+# Shared constants and helper parsing functions
+# ---------------------------------------------------------------------------
+
+COLORS = ["white", "blue", "black", "red", "green"]
+
+KEYWORD_ABILITIES = [
+    "flying", "vigilance", "haste", "deathtouch", "trample",
+    "first strike", "double strike", "lifelink", "hexproof",
+    "indestructible", "menace", "ward", "reach", "protection",
+]
+
+
+def parse_create_token_phrase(text: str) -> Dict[str, Any]:
+    token = {
+        "power": None,
+        "toughness": None,
+        "colors": [],
+        "types": [],
+        "abilities": [],
+        "copy_of": None,
+    }
+    pt_match = re.search(r"(\d)/(\d)", text)
+    if pt_match:
+        token["power"] = int(pt_match.group(1))
+        token["toughness"] = int(pt_match.group(2))
+    for color in COLORS:
+        if color in text:
+            token["colors"].append(color)
+    for ability in KEYWORD_ABILITIES:
+        if ability in text:
+            token["abilities"].append(ability)
+    if "offspring" in text:
+        token["copy_of"] = "source"
+        token["power"] = 1
+        token["toughness"] = 1
+    return {
+        "action": "create_token",
+        "effect_family": "token_creation",
+        "token": token,
+    }
+
+
+def parse_return_to_battlefield(text: str) -> Dict[str, Any]:
+    return {"action": "return_to_battlefield", "timing": "beginning_of_next_end_step"}
+
+
+def parse_power_toughness_modifier(text: str) -> Optional[Dict[str, Any]]:
+    if "+1/+1" in text:
+        return {
+            "type": "static_effect",
+            "layer": "7c",
+            "power_boost": 1,
+            "toughness_boost": 1,
+        }
+    if "-1/-1" in text:
+        return {
+            "type": "static_effect",
+            "layer": "7c",
+            "power_boost": -1,
+            "toughness_boost": -1,
+        }
+    return None
+
+
+def parse_static_combat_restriction(text: str) -> Optional[Dict[str, Any]]:
+    if "can't attack" in text:
+        return {
+            "type": "static_effect",
+            "layer": "6",
+            "restriction": "cant_attack",
+        }
+    if "must attack each combat if able" in text:
+        return {
+            "type": "static_effect",
+            "layer": "6",
+            "restriction": "must_attack",
+        }
+    return None
+
+
+def parse_return_to_hand_with_reference(text: str) -> Dict[str, Any]:
+    if "that creature" in text:
+        return {"action": "return_to_hand", "reference_tag": "that_creature"}
+    if "that spell" in text:
+        return {"action": "return_to_hand", "reference_tag": "that_spell"}
+    return {"action": "return_to_hand"}
+
+
+def parse_give_haste_to_tokens(text: str) -> Dict[str, Any]:
+    if "those tokens" in text:
+        return {"action": "grant_keyword", "reference_tag": "those_tokens", "keyword": "haste"}
+    return {"action": "grant_keyword", "keyword": "haste"}
+
+
+def parse_keyword_ability(text: str) -> Any:
+    text = text.lower()
+    if any(word in text for word in ["gains", "target", "equipped", "until end of turn"]):
+        return {"action": "unknown_effect"}
+    detected = []
+    for part in text.split(","):
+        part = part.strip()
+        for keyword in KEYWORD_ABILITIES:
+            if keyword in part:
+                detected.append({"type": "static_ability", "ability": keyword})
+    return detected if detected else {"action": "unknown_effect"}
+
+
+def parse_solve_case(text: str) -> Dict[str, Any]:
+    return {
+        "action": "set_state_flag",
+        "effect_family": "state_modification",
+        "flag": "solved",
+    }
+
+
+# ---------------------------------------------------------------------------
+# Effect template registry
+# ---------------------------------------------------------------------------
+
+STANDARD_EFFECTS: Dict[str, Dict[str, Any]] = {
+    "draw_card": {
+        "phrases": ["draw a card", "draw two cards", "draw three cards"],
+        "parse": lambda text: {"action": "draw_card"},
+    },
+    "gain_life": {
+        "phrases": ["gain life", "you gain 3 life", "you gain 1 life"],
+        "parse": lambda text: {"action": "gain_life"},
+    },
+    "lose_life": {
+        "phrases": ["lose life", "you lose 2 life", "you lose 1 life"],
+        "parse": lambda text: {"action": "lose_life"},
+    },
+    "deal_damage": {
+        "phrases": ["deal damage", "deals 2 damage"],
+        "parse": lambda text: {"action": "deal_damage"},
+    },
+    "destroy_target": {
+        "phrases": [
+            "destroy target",
+            "destroy target tapped creature",
+            "destroy target artifact",
+            "destroy target planeswalker",
+        ],
+        "parse": lambda text: {"action": "destroy_target"},
+    },
+    "exile_target": {
+        "phrases": ["exile target", "exile up to one target"],
+        "parse": lambda text: {"action": "exile_target"},
+    },
+    "tap_target": {
+        "phrases": ["tap target creature", "tap target permanent"],
+        "parse": lambda text: {"action": "tap_target"},
+    },
+    "untap_target": {
+        "phrases": ["untap target creature", "untap target permanent"],
+        "parse": lambda text: {"action": "untap_target"},
+    },
+    "return_to_hand": {
+        "phrases": [
+            "return target creature to its owner's hand",
+            "return target permanent to its owner's hand",
+        ],
+        "parse": parse_return_to_hand_with_reference,
+    },
+    "counter_spell": {
+        "phrases": [
+            "counter target spell",
+            "counter target activated ability",
+            "counter target triggered ability",
+        ],
+        "parse": lambda text: {"action": "counter_spell"},
+    },
+    "create_token": {
+        "phrases": [
+            "create a token",
+            "create a 1/1 white vampire",
+            "create a 1/1 white soldier creature token",
+            "create a 3/3 green beast creature token",
+            "create a clue token",
+        ],
+        "parse": parse_create_token_phrase,
+    },
+    "offspring": {
+        "phrases": ["offspring", "create an offspring token"],
+        "parse": parse_create_token_phrase,
+    },
+    "solve_case": {
+        "phrases": ["solve the case", "solved"],
+        "parse": parse_solve_case,
+    },
+    "buff_all_creatures": {
+        "phrases": [
+            "creatures you control get +1/+1",
+            "other creatures you control get +1/+1",
+        ],
+        "parse": parse_power_toughness_modifier,
+    },
+    "combat_restrictions": {
+        "phrases": ["can't attack", "must attack each combat if able"],
+        "parse": parse_static_combat_restriction,
+    },
+    "grant_keyword": {
+        "phrases": KEYWORD_ABILITIES,
+        "parse": parse_keyword_ability,
+    },
+}
+
+
+# ---------------------------------------------------------------------------
+# Simplified AST compiler (from oracle_ast_compiler_clean)
+# ---------------------------------------------------------------------------
+
+class OracleASTCompiler:
+    """Converts raw Oracle text into a simple AST."""
+
+    def compile(self, oracle_text: str) -> List[Dict[str, Any]]:
+        segments = self._split_clauses(oracle_text)
+        ast: List[Dict[str, Any]] = []
+
+        for segment in segments:
+            normalized = segment.lower().strip()
+
+            if normalized.startswith("choose one —") or normalized.startswith("choose one -"):
+                options = self._parse_modal_options(normalized)
+                ast.append({"type": "modal", "options": options})
+            elif "if" in normalized and "then" in normalized:
+                condition_part, consequence_part = normalized.split("then", 1)
+                if "otherwise" in consequence_part:
+                    then_part, else_part = consequence_part.split("otherwise", 1)
+                    ast.append(
+                        {
+                            "type": "conditional",
+                            "condition": condition_part.replace("if", "").strip(),
+                            "then": self.compile(then_part.strip()),
+                            "else": self.compile(else_part.strip()),
+                        }
+                    )
+                else:
+                    ast.append(
+                        {
+                            "type": "conditional",
+                            "condition": condition_part.replace("if", "").strip(),
+                            "then": self.compile(consequence_part.strip()),
+                        }
+                    )
+            elif "repeat this process" in normalized or "for each" in normalized:
+                ast.append(
+                    {
+                        "type": "repeat",
+                        "content": normalized,
+                        "children": self.compile(self._clean_repeat_text(normalized)),
+                    }
+                )
+            elif " and " in normalized and not normalized.startswith("search your library"):
+                parts = re.split(r" and ", normalized)
+                for part in parts:
+                    ast.append(self._wrap_effect(part.strip()))
+            else:
+                ast.append(self._wrap_effect(normalized))
+        return ast
+
+    def _split_clauses(self, text: str) -> List[str]:
+        text = text.replace("—", "-").replace("â€”", "-")
+        return re.split(r"\. |; |\n", text)
+
+    def _parse_modal_options(self, text: str) -> List[Dict[str, Any]]:
+        text = text.replace("choose one -", "").replace("choose one —", "").strip()
+        options = text.split(";")
+        return [self._wrap_effect(opt.strip()) for opt in options if opt]
+
+    def _wrap_effect(self, text: str) -> Dict[str, Any]:
+        return {"type": "effect", "content": text}
+
+    def _clean_repeat_text(self, text: str) -> str:
+        if "repeat this process" in text:
+            return text.split("repeat this process")[0].strip()
+        return text
+
+
+# ---------------------------------------------------------------------------
+# EffectRegistry — combines templates with compilation helpers
+# ---------------------------------------------------------------------------
+
+class EffectRegistry:
+    """Registry for effect phrases and token/AST compilation."""
+
+    def __init__(self) -> None:
+        self.tokenizer = Tokenizer()
+        self.trigger_parser = TriggerClauseParser()
+        self.condition_parser = ConditionClauseParser()
+        self.ast_compiler = OracleASTCompiler()
+
+        self.trigger_keywords = list(self.tokenizer.trigger_words)
+        self.action_keywords = list(self.tokenizer.action_words)
+
+        self.effect_templates: Dict[str, Dict[str, Any]] = STANDARD_EFFECTS.copy()
+        self.dsl_tags: Dict[str, str] = {
+            "token_creation": "create_token",
+            "state_modification": "set_state_flag",
+        }
+
+    # ------------------------------------------------------------------
+    # Registration utilities
+    # ------------------------------------------------------------------
+    def register_effect(self, key: str, phrases: List[str], parse_fn) -> None:
+        self.effect_templates[key] = {"phrases": phrases, "parse": parse_fn}
+
+    def match_action(self, text: str) -> Optional[Dict[str, Any]]:
+        text = text.lower()
+        for entry in self.effect_templates.values():
+            phrases = entry.get("phrases", [])
+            if any(p in text for p in phrases):
+                parse_fn = entry.get("parse")
+                return parse_fn(text)
+        return None
+
+    # ------------------------------------------------------------------
+    # Compilation functions
+    # ------------------------------------------------------------------
+    def compile_tokens(self, tokens: List[Token]) -> EffectIR:
+        trigger: Optional[Dict[str, Any]] = None
+        condition: Optional[Dict[str, Any]] = None
+
+        i = 0
+        while i < len(tokens):
+            token = tokens[i]
+            if token.type == TokenType.TRIGGER_WORD:
+                trig, new_i = self.trigger_parser.parse_trigger_clause(tokens, i)
+                trigger = trig.get("trigger")
+                i = new_i
+                continue
+            if token.type == TokenType.CONDITION_WORD:
+                condition = self.condition_parser.parse_condition_clause(tokens, i)
+                break
+            i += 1
+
+        action_tokens = tokens[i:]
+        action_text = " ".join(t.value for t in action_tokens)
+        action = self.match_action(action_text)
+        if not action:
+            action = {"action": "unparsed_effect", "raw_text": action_text}
+
+        return EffectIR(trigger=trigger, condition=condition, action=action)
+
+    def compile_clause(self, clause: str) -> EffectIR:
+        tokens = self.tokenizer.tokenize(clause)
+        return self.compile_tokens(tokens)
+
+    def compile_text(self, oracle_text: str) -> List[EffectIR]:
+        ast = self.ast_compiler.compile(oracle_text)
+        ir_list: List[EffectIR] = []
+        for node in ast:
+            node_type = node.get("type")
+            if node_type == "effect":
+                ir_list.append(self.compile_clause(node.get("content", "")))
+            else:
+                # For now only simple effects are compiled; complex structures
+                # are wrapped as unparsed actions.
+                ir_list.append(
+                    EffectIR(
+                        action={"action": "unparsed_effect", "raw_text": str(node)}
+                    )
+                )
+        return ir_list
+
+
+__all__ = [
+    "EffectRegistry",
+    "OracleASTCompiler",
+    "STANDARD_EFFECTS",
+    "KEYWORD_ABILITIES",
+]

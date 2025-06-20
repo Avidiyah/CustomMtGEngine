@@ -100,8 +100,8 @@ class Player:
         for card in self.hand:
             if "land" not in card.type_line.lower() and self.can_pay_cost(card.mana_cost):
                 self.pay_cost(card.mana_cost)
-                spell = Spell(card, self)
-                game_state["stack"].push({"source": card.name, "effect": lambda: spell.on_play(game_state)})
+                spell = Spell(card=card, controller=self)
+                game_state["stack"].push(spell)
                 self.hand.remove(card)
                 print(f"{self.name} casts {card.name}.")
                 return True

@@ -1,5 +1,5 @@
 # GameUI.py — Updated for Dummy Input System and Manual Mode
-from stack_system.Spell import Spell
+from stack_system import Spell
 
 class GameUI:
     def __init__(self, game_manager, game_state, dummy_mode=False):
@@ -51,8 +51,8 @@ class GameUI:
                                 print("Not enough mana.")
                                 break
                             current_player.pay_cost(card.mana_cost)
-                            spell = Spell(card, current_player)
-                            self.game_state["stack"].push({"source": card.name, "effect": lambda: spell.on_play(self.game_state)})
+                            spell = Spell(card=card, controller=current_player)
+                            self.game_state["stack"].push(spell)
                             current_player.hand.remove(card)
                         break
                 else:
@@ -74,7 +74,7 @@ class GameUI:
 
             if phase == "Precombat Main" and not self.game_state["stack"].is_empty():
                 print("Resolving stack...")
-                print(self.game_state["stack"].resolve())
+                print(self.game_state["stack"].resolve_top(self.game_state))
 
     def auto_action(self, current_player):
         if self.try_tap_land(current_player):
@@ -96,8 +96,8 @@ class GameUI:
         for card in current_player.hand:
             if "land" not in card.type_line.lower() and current_player.can_pay_cost(card.mana_cost):
                 current_player.pay_cost(card.mana_cost)
-                spell = Spell(card, current_player)
-                self.game_state["stack"].push({"source": card.name, "effect": lambda: spell.on_play(self.game_state)})
+                spell = Spell(card=card, controller=current_player)
+                self.game_state["stack"].push(spell)
                 current_player.hand.remove(card)
                 print(f"[AUTO] Cast {card.name}.")
                 return True

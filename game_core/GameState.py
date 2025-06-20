@@ -41,9 +41,9 @@ class GameState:
         "Cleanup",
     ]
 
-    def __init__(self, players: List[Any] | None = None, stack: Stack | None = None, trigger_engine: Any | None = None) -> None:
+    def __init__(self, players: List[Any] | None = None, stack: StackEngine | None = None, trigger_engine: Any | None = None) -> None:
         self.players: List[Any] = players or []
-        self.stack: Stack = stack or Stack()
+        self.stack: StackEngine = stack or StackEngine()
         self.trigger_engine = trigger_engine
 
         self.turn_index: int = 0
@@ -155,13 +155,15 @@ class GameState:
     # ------------------------------------------------------------------
     # Stack interaction
     # ------------------------------------------------------------------
-    def push_to_stack(self, item: Dict[str, Any]) -> str:
-        """Push an item onto the stack."""
-        return self.stack.push(item)
+    def push_to_stack(self, item: Any) -> str:
+        """Push a :class:`StackObject` onto the stack."""
+        self.stack.push(item)
+        name = getattr(item, "display_name", lambda: str(item))()
+        return f"{name} added to stack."
 
     def resolve_stack(self) -> str:
         """Resolve the topmost object on the stack."""
-        return self.stack.resolve_next()
+        return self.stack.resolve_top(self)
 
     # ------------------------------------------------------------------
     # State based actions

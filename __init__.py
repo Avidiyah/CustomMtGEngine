@@ -1,3 +1,3 @@
-from .combat_engine import CombatEngine
+from .CombatEngine import CombatEngine
 
 __all__ = ["CombatEngine"]

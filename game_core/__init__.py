@@ -3,3 +3,4 @@
 from .Player import Player
 from .PriorityManager import PriorityManager
 from .GameManager import GameManager
+from .GameState import GameState

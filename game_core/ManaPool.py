@@ -9,24 +9,16 @@ parse and spend mana costs including generic and hybrid notation such as
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+
 from typing import Dict, Iterable, List, Union
 import re
 
-@dataclass
 class ManaPool:
-    def __init__(self):
-    """Container for a player's available mana.
+       COLORS = ("W", "U", "B", "R", "G", "C")
 
-    Parameters
-    ----------
-    pool : dict[str, int], optional
-        Initial mana values by colour.  Colours not supplied default to ``0``.
-    """
-
-    pool: Dict[str, int] = field(default_factory=lambda: {c: 0 for c in "WUBRGC"})
-
-    COLORS = ("W", "U", "B", "R", "G", "C")
+    def __init__(self) -> None:
+        """Container for a player's available mana."""
+        self.pool: Dict[str, int] = {c: 0 for c in self.COLORS}
 
     # ------------------------------------------------------------------
     # Basic operations
@@ -44,7 +36,6 @@ class ManaPool:
         if amount < 0:
             raise ValueError("Cannot add a negative amount of mana")
         self.pool[color] += amount
-            elif sym in cost:
     def spend(self, color: str, amount: int = 1) -> None:
         """Remove mana of ``color`` from the pool.
 
@@ -83,7 +74,7 @@ class ManaPool:
 
     def total(self) -> int:
         """Return the total amount of mana in the pool."""
-                return sum(self.pool.values())
+        return sum(self.pool.values())
 
     # ------------------------------------------------------------------
     # Mana cost handling

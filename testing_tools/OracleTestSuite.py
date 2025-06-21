@@ -3,7 +3,7 @@
 
 import json
 from OracleParser import OracleParser
-from data_layer.CardDataManager import CardDataManager
+from data_layer.CardEntities import CardDataManager
 from TreeValidator import TreeValidator
 
 class OracleTestSuite:

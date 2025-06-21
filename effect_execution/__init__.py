@@ -2,4 +2,4 @@
 
 from .EffectEngine import EffectEngine, EffectContext, DynamicReferenceManager
 from .StaticChecker import StaticChecker
-from.ReplacementEffectManager import ReplacementEffectManager
+from .ReplacementEffectManager import ReplacementEffectManager

@@ -1,15 +1,12 @@
 # === EffectParser.py ===
 # Parses AST into behavior trees and static abilities
 
-from effect_execution import StaticEffectDescriptor
-from .EffectPhraseRegistry import STANDARD_EFFECTS
+from .EffectRegistry import STANDARD_EFFECTS
 from .Tokenizer import Tokenizer
-from .PatternLayer import PatternLayer
 
 class EffectParser:
     def __init__(self):
         self.tokenizer = Tokenizer()
-        self.pattern_layer = PatternLayer()
 
     def parse_ast(self, ast_node, card=None):
         behavior_tree = {

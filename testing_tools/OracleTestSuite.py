@@ -4,7 +4,7 @@
 import json
 from oracle_parser.OracleParser import OracleParser
 from data_layer.CardEntities import CardDataManager
-from TreeValidator import TreeValidator
+from .TreeValidator import TreeValidator
 
 class OracleTestSuite:
     def __init__(self, test_cases=None):

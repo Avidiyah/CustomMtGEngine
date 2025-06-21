@@ -1,8 +1,6 @@
 # === GameManager ===
-from .PhaseManager import PhaseManager
 from .PriorityManager import PriorityManager
 from stack_system.TriggerEngine import TriggerEngine
-from .StateBasedActions import StateBasedActions
 from stack_system import StackEngine
 
 
@@ -14,8 +12,8 @@ class GameManager:
         self.phase_manager = phase_manager
         self.priority_manager = priority_manager or PriorityManager(players[0], players[1])
         self.trigger_engine = trigger_engine
-        self.state_based_actions = state_based_actions or StateBasedActions()
-        self.stack = stack
+        # TODO: implement StateBasedActions in a later phase
+        self.state_based_actions = state_based_actions        self.stack = stack
         self.turn_player_index = 0
         self.headless_mode = headless
 

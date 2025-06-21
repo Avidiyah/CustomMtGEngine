@@ -1,5 +1,5 @@
-from OracleComplianceTestSuite import OracleTestFramework
-from oracle_parser.oracle_parser_module_integrated import oracle_tokenizer,match_oracle_phrases,parse_oracle_text_to_behavior_tree
+from OracleComplianceTestSuite import OracleComplianceTestSuite
+from oracle_parser.OracleParser import oracle_tokenizer,match_oracle_phrases,parse_oracle_text_to_behavior_tree
 
 # Initialize your parser
 parser = IntegratedOracleParser()

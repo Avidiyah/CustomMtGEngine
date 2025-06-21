@@ -6,6 +6,28 @@ from stack_system import StackEngine
 
 from .StateMemoryTracker import StateMemoryTracker
 
+
+class SimplePhaseManager:
+    """Fallback phase manager using :class:`GameState` phase order."""
+
+    def __init__(self, phases):
+        self.phases = list(phases)
+        self.current_index = 0
+
+    def current_phase(self):
+        return self.phases[self.current_index]
+
+    def next_phase(self):
+        self.current_index = (self.current_index + 1) % len(self.phases)
+
+
+class DefaultStateBasedActions:
+    """Minimal SBA handler that defers to ``GameState.check_state_based_actions``."""
+
+    def check_and_apply(self, game_state):
+        return game_state.check_state_based_actions()
+
+
 class GameManager:
     def __init__(self, players, stack, phase_manager, trigger_engine, priority_manager=None, state_based_actions=None, headless=False):
         self.players = players

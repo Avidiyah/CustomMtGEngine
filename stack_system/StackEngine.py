@@ -11,7 +11,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, List, Optional
 
-from ..data_layer.card_entities import Card
+from ..data_layer.CardEntities import Card
 from ..effect_execution import EffectEngine, EffectContext
 
 

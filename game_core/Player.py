@@ -23,7 +23,7 @@ class Player:
             return f"{card.name} is not in hand."
         self.hand.remove(card)
         self.lands_played_this_turn += 1
-        game_state["zone_manager"].move_to_zone(card, "battlefield", game_state)
+        game_state.move_card(card, self, "battlefield")
         return f"{self.name} plays {card.name} as a land."
 
     def reset_land_play(self):
@@ -101,7 +101,7 @@ class Player:
             if "land" not in card.type_line.lower() and self.can_pay_cost(card.mana_cost):
                 self.pay_cost(card.mana_cost)
                 spell = Spell(card=card, controller=self)
-                game_state["stack"].push(spell)
+                game_state.stack.push(spell)
                 self.hand.remove(card)
                 print(f"{self.name} casts {card.name}.")
                 return True

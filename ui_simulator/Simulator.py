@@ -81,7 +81,6 @@ class Simulator:
                 log.extend(self.simulate_phase(phase))
             self.state.next_turn()
         return log
-        return False
 
     @staticmethod
     def event_matches_trigger(trigger_text, event_text):

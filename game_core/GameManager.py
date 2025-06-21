@@ -13,7 +13,8 @@ class GameManager:
         self.priority_manager = priority_manager or PriorityManager(players[0], players[1])
         self.trigger_engine = trigger_engine
         # TODO: implement StateBasedActions in a later phase
-        self.state_based_actions = state_based_actions        self.stack = stack
+        self.state_based_actions = state_based_actions
+        self.stack = stack
         self.turn_player_index = 0
         self.headless_mode = headless
 

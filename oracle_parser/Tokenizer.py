@@ -44,7 +44,7 @@ class Token:
         return f"Token(type={self.type}, value={self.value}, metadata={self.metadata})"
 
 # Tokenizer class
-from .rule_lexicon import (
+from .RuleLexicon import (
     TRIGGER_WORDS,
     CONDITION_WORDS,
     ACTION_WORDS,

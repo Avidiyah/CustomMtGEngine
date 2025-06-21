@@ -14,11 +14,9 @@ from typing import List, Sequence
 from data_layer.card_entities import Card, CardDataManager
 from game_core import GameState, Player
 from stack_system import StackEngine, TriggerEngine
-from CombatEngine import CombatEngine
+from runtime.combat_engine import CombatEngine
 from effect_execution import EffectEngine
 from oracle_parser import OracleParser
-
-        self.trigger_engine.pending_triggers.clear()
 class Simulator:
     """Backend driver for headless or scripted simulations."""
 

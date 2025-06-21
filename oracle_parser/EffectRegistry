@@ -13,8 +13,10 @@ from dataclasses import dataclass
 from typing import Any, Dict, List, Optional
 
 from .Tokenizer import Token, TokenType, Tokenizer
-from .TriggerClauseParser import TriggerClauseParser
-from .ConditionClauseParser import ConditionClauseParser
+from .ClauseParser import (
+    _parse_trigger_tokens,
+    _parse_condition_tokens,
+)
 from .OracleParser import EffectIR
 from .RuleLexicon import STATIC_KEYWORDS as KEYWORD_ABILITIES
 

@@ -12,12 +12,12 @@ def initialize_players():
 def setup_game(headless: bool = False):
     players = initialize_players()
     if headless:
-        return Simulator(headless=True)
-    else:
-        stack = StackEngine()
-        trigger_engine = TriggerEngine()
-        priority_manager = PriorityManager(players[0], players[1])
-               return GameManager(players, stack, None, trigger_engine, priority_manager, None, headless=False)
+        names = [p.name for p in players]
+        return Simulator(names)
+    stack = StackEngine()
+    trigger_engine = TriggerEngine()
+    priority_manager = PriorityManager(players[0], players[1])
+    return GameManager(players, stack, None, trigger_engine, priority_manager, None, headless=False)
 def main():
     print("Launching Magic: The Gathering engine...")
     mode = input("Select mode: [manual] or [headless] > ").strip().lower()

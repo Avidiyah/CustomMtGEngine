@@ -27,15 +27,18 @@ class DefaultStateBasedActions:
     def check_and_apply(self, game_state):
         return game_state.check_state_based_actions()
 
-
 class GameManager:
     def __init__(self, players, stack, phase_manager, trigger_engine, priority_manager=None, state_based_actions=None, headless=False):
         self.players = players
-        self.phase_manager = phase_manager
+        if phase_manager is None:
+            from .GameState import GameState
+            self.phase_manager = SimplePhaseManager(GameState.phases)
+        else:
+            self.phase_manager = phase_manager
         self.priority_manager = priority_manager or PriorityManager(players[0], players[1])
         self.trigger_engine = trigger_engine
         # TODO: implement StateBasedActions in a later phase
-        self.state_based_actions = state_based_actions
+        self.state_based_actions = state_based_actions or DefaultStateBasedActions()
         self.stack = stack
         self.turn_player_index = 0
         self.headless_mode = headless
@@ -98,3 +101,23 @@ class GameManager:
             self.execute_phase(game_state)
         self.phase_manager.next_phase()
         self.next_turn()
+
+
+    def run(self, game_state=None):
+        """Execute turns indefinitely using ``game_state``."""
+        if game_state is None:
+            from .GameState import GameState
+            game_state = GameState(self.players, stack=self.stack, trigger_engine=self.trigger_engine)
+        try:
+            while True:
+                self.execute_turn(game_state)
+        except KeyboardInterrupt:  # pragma: no cover - manual loop
+            print("[GameManager] Run loop terminated.")
+
+    def end_turn(self):
+        """Placeholder for end-of-turn cleanup."""
+        raise NotImplementedError("end_turn is not implemented yet")
+
+    def start_next_turn(self):
+        """Placeholder for beginning the next turn."""
+        raise NotImplementedError("start_next_turn is not implemented yet")

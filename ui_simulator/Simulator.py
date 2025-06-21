@@ -1,153 +1,88 @@
-# === Simulator.py ===
+"""Game simulation backend utilities.
 
-from ..data_layer import Card
-from oracle_parser import OracleParserPipeline
-from stack_system import TriggerEngine, StackEngine
-from game_core import PhaseManager, Player, GameManager, PriorityManager, StateBasedActions, ZoneManager
-from ui_simulator import GameUI
+This module provides a :class:`Simulator` that can be used by manual
+or automated tests to drive the engine without requiring UI prompts.
+The class offers helper methods for setting up a game state, loading
+decks and iterating through phases.  No gameplay logic is implemented
+here; it simply orchestrates calls to the existing engine modules.
+"""
 
+from __future__ import annotations
 
-class Simulator:
-    def __init__(self, headless=False):
-        self.headless = headless
-        self.stack = StackEngine()
-        self.phase_manager = PhaseManager()
-        self.trigger_engine = TriggerEngine()
-        self.players = [Player(name="Player 1"), Player(name="Player 2")]
-        self.priority_manager = PriorityManager(self.players[0], self.players[1])
-        self.state_based_actions = StateBasedActions()
-        self.zone_manager = ZoneManager()
+from typing import List, Sequence
 
-        self.game_state = {
-            "players": self.players,
-            "stack": self.stack,
-            "phase_manager": self.phase_manager,
-            "trigger_engine": self.trigger_engine,
-            "priority_manager": self.priority_manager,
-            "state_based_actions": self.state_based_actions,
-            "zone_manager": self.zone_manager
-        }
-
-        self.game_manager = GameManager(
-            players=self.players,
-            stack=self.stack,
-            phase_manager=self.phase_manager,
-            trigger_engine=self.trigger_engine,
-            priority_manager=self.priority_manager,
-            state_based_actions=self.state_based_actions,
-            headless=True
-        )
-
-        if not self.headless:
-            self.ui = GameUI(self.game_manager, self.game_state, dummy_mode=False)
-        else:
-            self.ui = None  # No GameUI in headless
-
-    def run(self):
-        if self.headless:
-            self.run_headless()
-        else:
-            self.run_manual()
-
-    def run_manual(self):
-        print("\n=== Manual Simulation ===")
-        card_name = input("\nEnter the name of the card you want to simulate: ").strip()
-
-        card = Card(name=card_name)
-        parser = OracleParserPipeline()
-
-        oracle_text = card.data.get("oracle_text", "")
-        parser.parse_oracle_text(card, oracle_text)
-
-        print("\n=== CARD DATA ===")
-        print(f"[Name] {card.name}")
-        print(f"[Type Line] {card.data.get('type_line', 'Unknown')}")
-        print(f"[Mana Cost] {card.data.get('mana_cost', 'Unknown')}")
-        print(f"[Oracle Text] {oracle_text}")
-
-        print("\n=== PARSING RESULTS ===")
-        print(f"[Static Abilities Detected] {card.static_ability_tags}")
-        print("\n[Behavior Tree Effects]")
-        has_unknown = False
-        for effect in card.behavior_tree:
-            if effect.get("action") == "unknown_effect":
-                print(f"  ❌ [UNMATCHED EFFECT]: {effect.get('raw_text', '<no raw_text>')}")
-                has_unknown = True
-            else:
-                print(f"  ✅ [Matched Effect]: {effect}")
-        if not has_unknown:
-            print("\n✅ No unmatched effects detected.")
-
-        self.trigger_engine.register_card(card)
-
-        print("\n=== TRIGGER REGISTRATION ===")
-        print(f"[Registered Triggers for {card.name}]")
-        for reg_card, reg_effect in self.trigger_engine.registered_cards:
-            print(f"  - {reg_effect.get('raw_text', '')}")
-
-        game_event = input("\nEnter an event to simulate (example: 'creature enters'): ").strip()
-        print(f"[Simulated Event] {game_event}")
+from data_layer.card_entities import Card, CardDataManager
+from game_core import GameState, Player
+from stack_system import StackEngine, TriggerEngine
+from CombatEngine import CombatEngine
+from effect_execution import EffectEngine
+from oracle_parser import OracleParser
 
         self.trigger_engine.pending_triggers.clear()
-        for reg_card, reg_effect in self.trigger_engine.registered_cards:
-            if self.event_matches_trigger(reg_effect.get('raw_text', "").lower(), game_event.lower()):
-                self.trigger_engine.pending_triggers.append((reg_card, reg_effect))
+class Simulator:
+    """Backend driver for headless or scripted simulations."""
 
-        print("\n[Pending Triggers Detected]")
-        if self.trigger_engine.pending_triggers:
-            for pend_card, pend_effect in self.trigger_engine.pending_triggers:
-                print(f"  - {pend_card.name} trigger: {pend_effect.get('raw_text', '')}")
-        else:
-            print("  - None")
+    def __init__(self, player_names: Sequence[str]) -> None:
+        """Create a new ``GameState`` with players named in ``player_names``."""
+        self.players: List[Player] = [Player(name) for name in player_names]
+        self.stack = StackEngine()
+        self.triggers = TriggerEngine()
+        self.state = GameState(self.players, stack=self.stack, trigger_engine=self.triggers)
+        self.combat = CombatEngine()
+        self.effect_engine = EffectEngine()
+        self.parser = OracleParser()
 
-        print("\n=== PRIORITY PASS ===")
-        self.phase_manager.pass_priority(self.game_state)
+    # ------------------------------------------------------------------
+    # Deck/zone management
+    # ------------------------------------------------------------------
+    def load_deck(self, player_index: int, deck_list: Sequence[str]) -> None:
+        """Populate ``player_index``'s library with cards from ``deck_list``."""
+        manager = CardDataManager()
+        player = self.players[player_index]
+        player.library.clear()
+        for name in deck_list:
+            data = manager.get_card_data(name) or {}
+            card = Card(name)
+            card.oracle_text = data.get("oracle_text", "")
+            card.type_line = data.get("type_line", "")
+            card.mana_cost = data.get("mana_cost", "")
+            player.library.append(card)
 
-        print("\n[Stack after Priority Pass]")
-        print(self.stack.log())
+    # ------------------------------------------------------------------
+    # Simulation helpers
+    # ------------------------------------------------------------------
+    def simulate_phase(self, phase: str) -> List[str]:
+        """Execute a single phase step and return log messages."""
+        logs: List[str] = []
+        self.state.phase_index = self.state.phases.index(phase)
+        active = self.state.current_player()
 
-        print("\n=== SIMULATION COMPLETE ===")
+        if phase == "Untap":
+            active.untap_all()
+        elif phase == "Draw":
+            active.draw(1)
 
-    def run_headless(self):
-        print("\n=== Headless Simulation Starting ===")
-        self.setup_full_game()
+        if phase == "Declare Attackers":
+            if hasattr(self.state, "combat"):
+                self.state.combat.clear()
+            logs.extend(self.combat.declare_attackers(self.state, active, []))
 
-        while not self.is_game_over():
-            self.game_manager.execute_turn(self.game_state)
-            print("[INFO] Headless Turn completed.")
-        print("\n=== Headless Simulation Complete ===")
+        # Resolve triggers and stack if needed
+        self.triggers.check_and_push(self.state, self.stack)
+        if not self.stack.is_empty():
+            logs.append(self.stack.resolve_top(self.state))
 
-    def setup_full_game(self):
-        from data_layer.Card import Card  # Correct local import
+        logs.extend(self.state.check_state_based_actions())
+        return logs
 
-        for player in self.players:
-            # Add 20 Islands
-            for _ in range(20):
-                island = Card(name="Island")
-                island.type_line = "Basic Land — Island"
-                island.mana_cost = ""
-                player.library.append(island)
-
-            # Add 20 Test Creatures
-            for _ in range(20):
-                creature = Card(name="Test Creature")
-                creature.type_line = "Creature — Dummy"
-                creature.mana_cost = "{1}{U}"  # 2 mana: 1 generic, 1 blue
-                creature.power = 2
-                creature.toughness = 2
-                player.library.append(creature)
-
-            # Shuffle library
-            import random
-            random.shuffle(player.library)
-
-            # Draw 7 card opening hand
-            player.draw(7)
-
-    def is_game_over(self):
-        for player in self.players:
-            if player.life <= 0 or len(player.library) == 0:
-                return True
+    def run_test_game(self, turns: int = 1) -> List[str]:
+        """Run a very small scripted game for ``turns`` turns."""
+        log: List[str] = []
+        for _ in range(turns):
+            for phase in self.state.phases:
+                log.extend(self.simulate_phase(phase))
+            self.state.next_turn()
+        return log
         return False
 
     @staticmethod

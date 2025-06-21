@@ -9,7 +9,7 @@ query and mutate.
 
 from typing import List, Dict, Any
 
-from stack_system.Stack import Stack
+from stack_system.StackEngine import StackEngine
 
 
 class GameState:

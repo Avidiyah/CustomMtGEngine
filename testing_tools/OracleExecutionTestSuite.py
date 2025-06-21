@@ -1,7 +1,7 @@
 import json
 from game_core import GameManager
 from ..data_layer import CardDataManager
-from game_core import PhaseManager, Player
+from game_core import Player
 from stack_system import StackEngine, TriggerEngine
 from ..data_layer import Card
 
@@ -23,11 +23,10 @@ class OracleExecutionTestSuite:
     @staticmethod
     def setup_game(test_case):
         players = [Player(name=n) for n in test_case.get("players", ["Player A", "Player B"])]
-        phase_manager = PhaseManager()
         stack = StackEngine()
         trigger_engine = TriggerEngine()
 
-        gm = GameManager(players, stack, phase_manager, trigger_engine)
+        gm = GameManager(players, stack, None, trigger_engine)
 
         # Apply zone setups and card injection
         for zone_name, cards_by_player in test_case["setup"].get("zones", {}).items():

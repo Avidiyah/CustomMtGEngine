@@ -14,7 +14,7 @@ from typing import Dict, Iterable, List, Union
 import re
 
 class ManaPool:
-       COLORS = ("W", "U", "B", "R", "G", "C")
+    COLORS = ("W", "U", "B", "R", "G", "C")
 
     def __init__(self) -> None:
         """Container for a player's available mana."""

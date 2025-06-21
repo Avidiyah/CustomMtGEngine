@@ -9,7 +9,7 @@ def initialize_players():
     print("Initializing players...")
     return [Player("Alice"), Player("Bob")]
 
-def setup_game(headless=False):
+def setup_game(headless: bool = False):
     players = initialize_players()
     if headless:
         return Simulator(headless=True)

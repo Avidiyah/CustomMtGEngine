@@ -11,7 +11,7 @@ from typing import List, Optional, Dict, Any
 
 from .Tokenizer import Tokenizer, TokenType
 from .EffectRegistry import STANDARD_EFFECTS
-from .clause_parsers import (
+from .ClauseParser import (
     _parse_trigger_tokens,
     _parse_condition_tokens,
 )

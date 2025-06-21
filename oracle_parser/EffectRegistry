@@ -303,8 +303,8 @@ class EffectRegistry:
 
     def __init__(self) -> None:
         self.tokenizer = Tokenizer()
-        self.trigger_parser = TriggerClauseParser()
-        self.condition_parser = ConditionClauseParser()
+        self.trigger_parser = _parse_trigger_tokens
+        self.condition_parser = _parse_condition_tokens
         self.ast_compiler = OracleASTCompiler()
 
         self.trigger_keywords = list(self.tokenizer.trigger_words)

@@ -8,7 +8,7 @@ from TreeValidator import TreeValidator
 
 class OracleTestSuite:
     def __init__(self, test_cases=None):
-        self.parser = OracleParserPipeline()
+        self.parser = OracleParser()
         self.card_loader = CardDataManager()
         self.tree_validator = TreeValidator()
         self.test_cases = test_cases if test_cases else []

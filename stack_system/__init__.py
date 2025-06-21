@@ -8,7 +8,7 @@ from .stack_engine import (
     TriggeredAbility,
 )
 from .TriggerEngine import TriggerEngine
-from engine.combat_engine import CombatEngine
+
 
 __all__ = [
     "StackEngine",
@@ -17,5 +17,4 @@ __all__ = [
     "ActivatedAbility",
     "TriggeredAbility",
     "TriggerEngine",
-    "CombatEngine",
 ]

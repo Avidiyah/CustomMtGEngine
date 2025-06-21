@@ -1,6 +1,6 @@
 # === stack_system Anchor Module ===
 
-from .stack_engine import (
+from .StackEngine import (
     StackEngine,
     StackObject,
     Spell,

@@ -11,10 +11,10 @@ from __future__ import annotations
 
 from typing import List, Sequence
 
-from data_layer.card_entities import Card, CardDataManager
+from data_layer.CardEntities import Card, CardDataManager
 from game_core import GameState, Player
 from stack_system import StackEngine, TriggerEngine
-from runtime.combat_engine import CombatEngine
+from CombatEngine import CombatEngine
 from effect_execution import EffectEngine
 from oracle_parser import OracleParser
 class Simulator:

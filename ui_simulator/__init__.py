@@ -2,4 +2,4 @@
 
 from .Simulator import Simulator
 from .GameUI import GameUI
-from game_core.GameState import GameState, Player
+from game_core import GameState, Player

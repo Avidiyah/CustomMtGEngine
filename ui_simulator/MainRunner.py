@@ -1,6 +1,6 @@
 
 from ui_simulator import Simulator
-from game_core import Player, GameManager, PhaseManager, PriorityManager, StateBasedActions
+from game_core import Player, GameManager, PriorityManager
 from stack_system import StackEngine, TriggerEngine
 
 
@@ -15,12 +15,9 @@ def setup_game(headless=False):
         return Simulator(headless=True)
     else:
         stack = StackEngine()
-        phase_manager = PhaseManager()
         trigger_engine = TriggerEngine()
         priority_manager = PriorityManager(players[0], players[1])
-        state_based_actions = StateBasedActions()
-        return GameManager(players, stack, phase_manager, trigger_engine, priority_manager, state_based_actions, headless=False)
-
+               return GameManager(players, stack, None, trigger_engine, priority_manager, None, headless=False)
 def main():
     print("Launching Magic: The Gathering engine...")
     mode = input("Select mode: [manual] or [headless] > ").strip().lower()

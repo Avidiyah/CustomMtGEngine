@@ -11,7 +11,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Dict, List, Tuple, Any
 
-from data_layer.card_entities import Card
+from data_layer.CardEntities import Card
 from game_core.GameState import GameState
 from game_core.Player import Player
 

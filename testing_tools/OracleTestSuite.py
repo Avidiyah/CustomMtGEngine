@@ -2,7 +2,7 @@
 # Phase 3.1 — Automated Oracle Text → Behavior Tree → Validation Tests
 
 import json
-from oracle_parser.OracleParserPipeline import OracleParserPipeline
+from OracleParser import OracleParser
 from data_layer.CardDataManager import CardDataManager
 from TreeValidator import TreeValidator
 

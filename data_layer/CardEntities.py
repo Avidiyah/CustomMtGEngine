@@ -12,7 +12,10 @@ from typing import Any, Dict
 from dataclasses import dataclass, field
 
 import json
-import requests
+try:
+    import requests
+except Exception:  # pragma: no cover - optional dependency
+    requests = None
 
 
 class CardComponent:
@@ -74,6 +77,10 @@ class CardDataManager:
 
     def fetch_from_scryfall(self, card_name: str) -> Dict[str, Any] | None:
         url = f"https://api.scryfall.com/cards/named?exact={card_name}"
+        if requests is None:
+            raise RuntimeError(
+                "The 'requests' package is required to fetch cards from Scryfall."
+            )
         try:
             response = requests.get(url)
             if response.status_code == 200:

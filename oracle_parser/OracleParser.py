@@ -10,9 +10,11 @@ from dataclasses import dataclass
 from typing import List, Optional, Dict, Any
 
 from .Tokenizer import Tokenizer, TokenType
-from .EffectPhraseRegistry import STANDARD_EFFECTS
-from .TriggerClauseParser import TriggerClauseParser
-from .ConditionClauseParser import ConditionClauseParser
+from .EffectRegistry import STANDARD_EFFECTS
+from .clause_parsers import (
+    _parse_trigger_tokens,
+    _parse_condition_tokens,
+)
 
 
 @dataclass
@@ -30,12 +32,12 @@ class OracleParser:
     def __init__(self,
                  tokenizer: Optional[Tokenizer] = None,
                  effect_registry: Optional[Dict[str, Dict[str, Any]]] = None,
-                 trigger_parser: Optional[TriggerClauseParser] = None,
-                 condition_parser: Optional[ConditionClauseParser] = None) -> None:
+                 trigger_parser: Optional[callable] = None,
+                 condition_parser: Optional[callable] = None) -> None:
         self.tokenizer = tokenizer or Tokenizer()
         self.effect_registry = effect_registry or STANDARD_EFFECTS
-        self.trigger_parser = trigger_parser or TriggerClauseParser()
-        self.condition_parser = condition_parser or ConditionClauseParser()
+        self.trigger_parser = trigger_parser or _parse_trigger_tokens
+        self.condition_parser = condition_parser or _parse_condition_tokens
 
     # ------------------------------------------------------------------
     # Public API
@@ -70,12 +72,13 @@ class OracleParser:
         while i < len(tokens):
             token = tokens[i]
             if token.type == TokenType.TRIGGER_WORD:
-                trig, new_i = self.trigger_parser.parse_trigger_clause(tokens, i)
+                trig, new_i = self.trigger_parser(tokens, i)
                 trigger = trig.get("trigger")
                 i = new_i
                 continue
             if token.type == TokenType.CONDITION_WORD:
-                condition = self.condition_parser.parse_condition_clause(tokens, i)
+                condition, new_i = self.condition_parser(tokens, i)
+                i = new_i
                 break
             i += 1
 

@@ -90,6 +90,44 @@ class CardRepositoryPhaseTests(unittest.TestCase):
     def test_repository_load(self):
         loaded = self.repo.load_card('glorybringer')
         self.assertIsInstance(loaded, CardMetadata)
+        
+    def test_clause_structure(self):
+        md = self.metadata
+        lines = [l.strip() for l in md.oracle_text.split('\n') if l.strip()]
+        self.assertEqual(len(md.oracle_clauses), len(lines))
+        for clause, line in zip(md.oracle_clauses, lines):
+            self.assertEqual(clause.raw, line)
+            self.assertIsInstance(clause.effect_ir, dict)
+            # trigger/condition may be None in stub
+            self.assertTrue(hasattr(clause, 'trigger'))
+            self.assertTrue(hasattr(clause, 'condition'))
+            print('Clause:', clause.raw, clause.effect_ir)
+
+    def test_behavior_tree_population(self):
+        md = self.metadata
+        self.assertEqual(len(md.behavior_tree), len(md.oracle_clauses))
+        self.assertTrue(all(isinstance(act, dict) for act in md.behavior_tree))
+        print('Behavior Tree:', md.behavior_tree)
+
+    def test_static_keyword_extraction(self):
+        md = self.metadata
+        text_lower = md.oracle_text.lower()
+        expected = [kw for kw in rulelex.STATIC_KEYWORDS if kw in text_lower]
+        for kw in expected:
+            self.assertIn(kw, md.static_abilities)
+        print('Extracted Static Abilities:', md.static_abilities)
+
+    def test_hash_generation_consistency(self):
+        md = self.metadata
+        import hashlib
+        oracle_hash = hashlib.sha1(md.oracle_text.encode()).hexdigest()
+        fingerprint = hashlib.sha1(
+            f"{md.name}|{md.mana_cost}|{md.type_line}".encode()
+        ).hexdigest()
+        self.assertEqual(md.oracle_hash, oracle_hash)
+        self.assertEqual(md.card_fingerprint, fingerprint)
+        print('Oracle Hash:', md.oracle_hash)
+        print('Card Fingerprint:', md.card_fingerprint)
 
 if __name__ == '__main__':
     unittest.main(verbosity=2)

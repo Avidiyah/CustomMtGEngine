@@ -18,9 +18,12 @@ if PARENT_ROOT not in sys.path:
 # Create a package alias so modules using relative imports with '..' resolve.
 import types
 import importlib
+from importlib.machinery import ModuleSpec
+
 PKG_ALIAS = 'engine_test_pkg'
 pkg = types.ModuleType(PKG_ALIAS)
 pkg.__path__ = [REPO_ROOT]
+pkg.__spec__ = ModuleSpec(PKG_ALIAS, loader=None, is_package=True)
 sys.modules[PKG_ALIAS] = pkg
 importlib.import_module('.event_system', package=PKG_ALIAS)
 importlib.import_module('.data_layer', package=PKG_ALIAS)

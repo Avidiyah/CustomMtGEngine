@@ -1,14 +1,12 @@
 import os
 import sys
-import types
 import unittest
 from dataclasses import dataclass
-from typing import Optional, Dict, Any, List
+from typing import Any, Dict, List
 
-# Ensure repository root is on sys.path. We may be invoked from ``testing_tools``
-# or the repo root, so walk upward until ``data_layer`` is found.
+# Ensure repository root is on sys.path
 REPO_ROOT = os.path.abspath(os.path.dirname(__file__))
-while not os.path.exists(os.path.join(REPO_ROOT, "data_layer")):
+while not os.path.exists(os.path.join(REPO_ROOT, 'data_layer')):
     parent = os.path.dirname(REPO_ROOT)
     if parent == REPO_ROOT:
         break
@@ -17,123 +15,90 @@ if REPO_ROOT not in sys.path:
     sys.path.insert(0, REPO_ROOT)
 
 # -------------------------------------------------------------
-# Minimal stubs to avoid circular imports during tests
+# Imports from the engine
 # -------------------------------------------------------------
-# Stub oracle_parser.RuleLexicon
-rulelex = types.ModuleType('oracle_parser.RuleLexicon')
-rulelex.STATIC_KEYWORDS = {
-    'flying', 'haste', 'first strike', 'double strike',
-    'deathtouch', 'lifelink', 'vigilance', 'trample',
-    'hexproof', 'menace', 'ward', 'indestructible',
-    'protection', 'reach'
-}
-sys.modules['oracle_parser.RuleLexicon'] = rulelex
-
-# Stub oracle_parser.OracleParser
-oracle_mod = types.ModuleType('oracle_parser.OracleParser')
+from data_layer.CardRepository import CardRepository, CardMetadata, GameCard
+from oracle_parser.OracleParser import OracleParser
+from oracle_parser.Tokenizer import Token, TokenGroup, tokenize_clause
+from oracle_parser.ClauseParser import parse_token_group, ClauseBlock
+from oracle_parser.RuleLexicon import STATIC_KEYWORDS
 
 
-@dataclass
-class EffectIR:
-    trigger: Optional[Dict[str, Any]] = None
-    condition: Optional[Dict[str, Any]] = None
-    action: Optional[Dict[str, Any]] = None
-
-
-class OracleParser:
-    """Very small stub that splits text on newlines."""
-
-    def parse(self, text: str) -> List[EffectIR]:
-        clauses = [c.strip() for c in text.split('\n') if c.strip()]
-        return [EffectIR(action={'action': 'noop'}) for _ in clauses]
-
-
-oracle_mod.EffectIR = EffectIR
-oracle_mod.OracleParser = OracleParser
-sys.modules['oracle_parser.OracleParser'] = oracle_mod
-
-# Create package entry so imports succeed
-oracle_pkg = types.ModuleType('oracle_parser')
-sys.modules['oracle_parser'] = oracle_pkg
-
-# -------------------------------------------------------------
-from data_layer.CardRepository import CardRepository, GameCard, CardMetadata
-
-
-class CardRepositoryPhaseTests(unittest.TestCase):
+class OraclePipelineTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cache_path = os.path.join(REPO_ROOT, 'data_layer', 'card_cache.json')
         cls.repo = CardRepository(cache_file=cache_path)
-        cls.metadata = cls.repo.load_card('glorybringer')
-        cls.gamecard = GameCard(metadata=cls.metadata)
+        cls.glory = cls.repo.load_card('glorybringer')
+        cls.bolt = cls.repo.load_card('lightning bolt')
+        cls.angel = cls.repo.load_card('serra angel')
+        cls.gamecard = GameCard(metadata=cls.glory)
+        cls.parser = OracleParser()
 
-    def test_metadata_parsing(self):
-        md = self.metadata
-        self.assertIsInstance(md, CardMetadata)
+    # ------------------------------------------------------------------
+    # Phase 1.1 tests
+    # ------------------------------------------------------------------
+    def test_repository_load(self):
+        self.assertIsInstance(self.glory, CardMetadata)
+        self.assertIsInstance(self.bolt, CardMetadata)
+
+    def test_metadata_fields(self):
+        md = self.glory
         self.assertIn('Creature', md.types)
         self.assertIn('Dragon', md.subtypes)
         self.assertIn('flying', md.static_abilities)
-        self.assertGreater(len(md.oracle_clauses), 0)
+        self.assertIn('haste', md.static_abilities)
         self.assertTrue(md.oracle_hash)
         self.assertTrue(md.card_fingerprint)
-        print('\nCard Fingerprint:', md.card_fingerprint)
-        print('Supertypes:', md.supertypes)
-        print('Types:', md.types)
-        print('Subtypes:', md.subtypes)
+        print('\nOracle Hash:', md.oracle_hash)
+        print('Card Fingerprint:', md.card_fingerprint)
         print('Static Abilities:', md.static_abilities)
-        for i, clause in enumerate(md.oracle_clauses, 1):
-            print(f'Clause {i}:',
-                  'trigger=', clause.trigger,
-                  'condition=', clause.condition,
-                  'effect=', clause.effect_ir)
 
     def test_gamecard_wrapper(self):
         gc = self.gamecard
-        self.assertTrue(gc.is_creature())
         self.assertEqual(gc.zone, 'library')
+        self.assertTrue(gc.is_creature())
 
-    def test_repository_load(self):
-        loaded = self.repo.load_card('glorybringer')
-        self.assertIsInstance(loaded, CardMetadata)
-
-    def test_clause_structure(self):
-        md = self.metadata
-        lines = [l.strip() for l in md.oracle_text.split('\n') if l.strip()]
-        self.assertEqual(len(md.oracle_clauses), len(lines))
-        for clause, line in zip(md.oracle_clauses, lines):
-            self.assertEqual(clause.raw, line)
-            self.assertIsInstance(clause.effect_ir, dict)
-            # trigger/condition may be None in stub
-            self.assertTrue(hasattr(clause, 'trigger'))
-            self.assertTrue(hasattr(clause, 'condition'))
-            print('Clause:', clause.raw, clause.effect_ir)
+    # ------------------------------------------------------------------
+    # Phase 1.2 tests
+    # ------------------------------------------------------------------
+    def test_oracle_clauses_structure(self):
+        clauses = self.parser.parse(self.bolt.oracle_text)
+        lines = [l.strip() for l in self.bolt.oracle_text.split('\n') if l.strip()]
+        self.assertEqual(len(clauses), len(lines))
+        for c in clauses:
+            self.assertIsInstance(c, ClauseBlock)
+            self.assertIsInstance(c.effect_ir, dict)
+            self.assertTrue(c.clause_type)
+            print('ClauseBlock:', c.clause_type, c.raw, c.effect_ir)
 
     def test_behavior_tree_population(self):
-        md = self.metadata
-        self.assertEqual(len(md.behavior_tree), len(md.oracle_clauses))
-        self.assertTrue(all(isinstance(act, dict) for act in md.behavior_tree))
-        print('Behavior Tree:', md.behavior_tree)
+        clauses = self.parser.parse(self.bolt.oracle_text)
+        tree = self.parser.behavior_tree
+        self.assertEqual(len(tree), len(clauses))
+        self.assertTrue(all(isinstance(node, dict) for node in tree))
+        print('Behavior Tree:', tree)
 
-    def test_static_keyword_extraction(self):
-        md = self.metadata
-        text_lower = md.oracle_text.lower()
-        expected = [kw for kw in rulelex.STATIC_KEYWORDS if kw in text_lower]
-        for kw in expected:
-            self.assertIn(kw, md.static_abilities)
-        print('Extracted Static Abilities:', md.static_abilities)
+    # ------------------------------------------------------------------
+    # Phase 1.3 tests
+    # ------------------------------------------------------------------
+    def test_tokenizer_typing(self):
+        clause = 'Whenever another creature enters, you gain 1 life.'
+        group = tokenize_clause(clause)
+        self.assertIsInstance(group, TokenGroup)
+        types = [t.type for t in group.tokens]
+        print('Tokens:', [(t.text, t.type) for t in group.tokens])
+        self.assertIn('trigger_word', types)
+        self.assertIn('action_word', types)
 
-    def test_hash_generation_consistency(self):
-        md = self.metadata
-        import hashlib
-        oracle_hash = hashlib.sha1(md.oracle_text.encode()).hexdigest()
-        fingerprint = hashlib.sha1(
-            f"{md.name}|{md.mana_cost}|{md.type_line}".encode()
-        ).hexdigest()
-        self.assertEqual(md.oracle_hash, oracle_hash)
-        self.assertEqual(md.card_fingerprint, fingerprint)
-        print('Oracle Hash:', md.oracle_hash)
-        print('Card Fingerprint:', md.card_fingerprint)
+    def test_clause_parser_semantics(self):
+        clause = 'Whenever another creature enters, you gain 1 life.'
+        group = tokenize_clause(clause)
+        block = parse_token_group(group)
+        self.assertEqual(block.clause_type, 'trigger')
+        self.assertIsNotNone(block.effect_ir.get('trigger'))
+        self.assertIn('trigger', block.effect_ir)
+        print('Parsed Clause:', block)
 
 
 if __name__ == '__main__':

@@ -31,17 +31,22 @@ sys.modules['oracle_parser.RuleLexicon'] = rulelex
 
 # Stub oracle_parser.OracleParser
 oracle_mod = types.ModuleType('oracle_parser.OracleParser')
+
+
 @dataclass
 class EffectIR:
     trigger: Optional[Dict[str, Any]] = None
     condition: Optional[Dict[str, Any]] = None
     action: Optional[Dict[str, Any]] = None
 
+
 class OracleParser:
     """Very small stub that splits text on newlines."""
+
     def parse(self, text: str) -> List[EffectIR]:
         clauses = [c.strip() for c in text.split('\n') if c.strip()]
         return [EffectIR(action={'action': 'noop'}) for _ in clauses]
+
 
 oracle_mod.EffectIR = EffectIR
 oracle_mod.OracleParser = OracleParser
@@ -53,6 +58,7 @@ sys.modules['oracle_parser'] = oracle_pkg
 
 # -------------------------------------------------------------
 from data_layer.CardRepository import CardRepository, GameCard, CardMetadata
+
 
 class CardRepositoryPhaseTests(unittest.TestCase):
     @classmethod
@@ -90,7 +96,7 @@ class CardRepositoryPhaseTests(unittest.TestCase):
     def test_repository_load(self):
         loaded = self.repo.load_card('glorybringer')
         self.assertIsInstance(loaded, CardMetadata)
-        
+
     def test_clause_structure(self):
         md = self.metadata
         lines = [l.strip() for l in md.oracle_text.split('\n') if l.strip()]
@@ -128,6 +134,7 @@ class CardRepositoryPhaseTests(unittest.TestCase):
         self.assertEqual(md.card_fingerprint, fingerprint)
         print('Oracle Hash:', md.oracle_hash)
         print('Card Fingerprint:', md.card_fingerprint)
+
 
 if __name__ == '__main__':
     unittest.main(verbosity=2)

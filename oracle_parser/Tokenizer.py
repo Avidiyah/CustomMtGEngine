@@ -1,4 +1,7 @@
-# Splits Oracle text into Token objects
+"""Tokenizer utilities for Oracle text parsing."""
+
+from dataclasses import dataclass
+from typing import List
 
 # Token types
 class TokenType:
@@ -31,17 +34,23 @@ class TokenType:
     UNKNOWN = "unknown"
 
 # Token object
+@dataclass
 class Token:
-    def __init__(self, token_type, value, metadata=None):
-        self.type = token_type
-        self.value = value
-        self.metadata = metadata if metadata is not None else {}
+    """Simple token with associated classification type."""
 
-    def add_metadata(self, key, value):
-        self.metadata[key] = value
+    text: str
+    type: str
 
-    def __repr__(self):
-        return f"Token(type={self.type}, value={self.value}, metadata={self.metadata})"
+    def __repr__(self) -> str:  # pragma: no cover - repr debugging
+        return f"Token(text={self.text!r}, type={self.type})"
+
+
+@dataclass
+class TokenGroup:
+    """Grouping of tokens that originated from the same clause."""
+
+    raw: str
+    tokens: List[Token]
 
 # Tokenizer class
 from .RuleLexicon import (
@@ -111,72 +120,72 @@ class Tokenizer:
             phrase_2 = " ".join(words[i:i+3])
             phrase_1 = " ".join(words[i:i+2])
 
-            if phrase_4 in self.trigger_words or phrase_4 in self.timing_modifiers:
-                tokens.append(Token(TokenType.TRIGGER_WORD, phrase_4))
-                i += 5
-                continue
+            if phrase_4 in self.trigger_words or phrase_4 in self.timing_modifiers:␊
+                tokens.append(Token(phrase_4, TokenType.TRIGGER_WORD))
+                i += 5␊
+                continue␊
             elif phrase_3 in self.trigger_words or phrase_3 in self.timing_modifiers:
-                tokens.append(Token(TokenType.TRIGGER_WORD, phrase_3))
-                i += 4
-                continue
+                tokens.append(Token(phrase_3, TokenType.TRIGGER_WORD))
+                i += 4␊
+                continue␊
             elif phrase_2 in self.trigger_words or phrase_2 in self.timing_modifiers:
-                tokens.append(Token(TokenType.TRIGGER_WORD, phrase_2))
-                i += 3
-                continue
+                tokens.append(Token(phrase_2, TokenType.TRIGGER_WORD))
+                i += 3␊
+                continue␊
             elif phrase_1 in self.trigger_words or phrase_1 in self.timing_modifiers:
-                tokens.append(Token(TokenType.TRIGGER_WORD, phrase_1))
-                i += 2
-                continue
+                tokens.append(Token(phrase_1, TokenType.TRIGGER_WORD))
+                i += 2␊
+                continue␊
 
             # Single-word classification
-            if word in self.trigger_words:
-                tokens.append(Token(TokenType.TRIGGER_WORD, word))
-            elif word in self.condition_words:
-                tokens.append(Token(TokenType.CONDITION_WORD, word))
-            elif word in self.action_words:
-                tokens.append(Token(TokenType.ACTION_WORD, word))
-            elif word in self.targeting_words:
-                tokens.append(Token(TokenType.TARGETING_WORD, word))
-            elif word in self.zone_references:
-                tokens.append(Token(TokenType.ZONE_REFERENCE, word))
-            elif word in self.timing_modifiers:
-                tokens.append(Token(TokenType.TIMING_MODIFIER, word))
-            elif word in self.ability_keywords:
-                tokens.append(Token(TokenType.ABILITY_KEYWORD, word))
-            elif word in self.articles_indefinite:
-                tokens.append(Token(TokenType.ARTICLE_INDEFINITE, word))
-            elif word in self.articles_definite:
-                tokens.append(Token(TokenType.ARTICLE_DEFINITE, word))
-            elif word in self.pronouns_subject:
-                tokens.append(Token(TokenType.PRONOUN_SUBJECT, word))
-            elif word in self.pronouns_possessive:
-                tokens.append(Token(TokenType.PRONOUN_POSSESSIVE, word))
-            elif word in self.quantifiers:
-                tokens.append(Token(TokenType.QUANTIFIER, word))
-            elif word in self.verbs_control:
-                tokens.append(Token(TokenType.VERB_CONTROL, word))
-            elif word in self.verbs_state:
-                tokens.append(Token(TokenType.VERB_STATE, word))
-            elif word in self.verbs_be:
-                tokens.append(Token(TokenType.VERB_BE, word))
-            elif word in self.modal_verbs:
-                tokens.append(Token(TokenType.MODAL_VERB, word))
-            elif word in self.prepositions:
-                tokens.append(Token(TokenType.PREPOSITION, word))
-            elif word in self.temporal_modifiers:
-                tokens.append(Token(TokenType.TEMPORAL_MODIFIER, word))
-            elif word in self.noun_player_roles:
-                tokens.append(Token(TokenType.NOUN_PLAYER_ROLE, word))
-            elif word in self.resource_terms:
-                tokens.append(Token(TokenType.RESOURCE_TERM, word))
-            elif word in self.object_terms:
-                tokens.append(Token(TokenType.OBJECT_TERM, word))
-            elif word in self.effect_terms:
-                tokens.append(Token(TokenType.EFFECT_TERM, word))
-            elif word.isdigit() or word in self.quantifiers:
-                tokens.append(Token(TokenType.NUMERIC, word, metadata={"value": word}))
-            else:
-                tokens.append(Token(TokenType.UNKNOWN, word))
+            if word in self.trigger_words:␊
+                tokens.append(Token(word, TokenType.TRIGGER_WORD))
+            elif word in self.condition_words:␊
+                tokens.append(Token(word, TokenType.CONDITION_WORD))
+            elif word in self.action_words:␊
+                tokens.append(Token(word, TokenType.ACTION_WORD))
+            elif word in self.targeting_words:␊
+                tokens.append(Token(word, TokenType.TARGETING_WORD))
+            elif word in self.zone_references:␊
+                tokens.append(Token(word, TokenType.ZONE_REFERENCE))
+            elif word in self.timing_modifiers:␊
+                tokens.append(Token(word, TokenType.TIMING_MODIFIER))
+            elif word in self.ability_keywords:␊
+                tokens.append(Token(word, TokenType.ABILITY_KEYWORD))
+            elif word in self.articles_indefinite:␊
+                tokens.append(Token(word, TokenType.ARTICLE_INDEFINITE))
+            elif word in self.articles_definite:␊
+                tokens.append(Token(word, TokenType.ARTICLE_DEFINITE))
+            elif word in self.pronouns_subject:␊
+                tokens.append(Token(word, TokenType.PRONOUN_SUBJECT))
+            elif word in self.pronouns_possessive:␊
+                tokens.append(Token(word, TokenType.PRONOUN_POSSESSIVE))
+            elif word in self.quantifiers:␊
+                tokens.append(Token(word, TokenType.QUANTIFIER))
+            elif word in self.verbs_control:␊
+                tokens.append(Token(word, TokenType.VERB_CONTROL))
+            elif word in self.verbs_state:␊
+                tokens.append(Token(word, TokenType.VERB_STATE))
+            elif word in self.verbs_be:␊
+                tokens.append(Token(word, TokenType.VERB_BE))
+            elif word in self.modal_verbs:␊
+                tokens.append(Token(word, TokenType.MODAL_VERB))
+            elif word in self.prepositions:␊
+                tokens.append(Token(word, TokenType.PREPOSITION))
+            elif word in self.temporal_modifiers:␊
+                tokens.append(Token(word, TokenType.TEMPORAL_MODIFIER))
+            elif word in self.noun_player_roles:␊
+                tokens.append(Token(word, TokenType.NOUN_PLAYER_ROLE))
+            elif word in self.resource_terms:␊
+                tokens.append(Token(word, TokenType.RESOURCE_TERM))
+            elif word in self.object_terms:␊
+                tokens.append(Token(word, TokenType.OBJECT_TERM))
+            elif word in self.effect_terms:␊
+                tokens.append(Token(word, TokenType.EFFECT_TERM))
+            elif word.isdigit() or word in self.quantifiers:␊
+                tokens.append(Token(word, TokenType.NUMERIC))
+            else:␊
+                tokens.append(Token(word, TokenType.UNKNOWN))
 
             i += 1
 
@@ -184,3 +193,15 @@ class Tokenizer:
 
     def clean_punctuation(self, text):
         return text.replace(",", "").replace(".", "").replace(";", "").replace(":", "").replace("!", "").replace("?", "")
+
+
+_default_tokenizer = Tokenizer()
+
+
+def tokenize_clause(clause: str) -> TokenGroup:
+    """Tokenize a single Oracle text clause into a :class:`TokenGroup`."""
+    tokens_raw = _default_tokenizer.tokenize(clause)
+    # ``tokenize`` already returns :class:`Token` objects but we wrap them in a
+    # :class:`TokenGroup` for downstream parsing.
+    return TokenGroup(raw=clause, tokens=list(tokens_raw))
+

@@ -1,7 +1,15 @@
+import os
 import sys
 import types
 from dataclasses import dataclass
 from typing import Optional, Dict, Any, List
+
+# Ensure repository root is on sys.path so `data_layer` resolves when run from
+# any directory.  This lets `python testing_tools/Test_Run.py` work just like
+# running from repo root.
+REPO_ROOT = os.path.abspath(os.path.dirname(__file__))
+if REPO_ROOT not in sys.path:
+    sys.path.insert(0, REPO_ROOT)
 
 # -------------------------------------------------------------
 # Minimal stubs to avoid circular imports during tests
@@ -45,7 +53,8 @@ from data_layer.CardRepository import CardRepository, GameCard, CardMetadata
 class CardRepositoryPhaseTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.repo = CardRepository(cache_file='data_layer/card_cache.json')
+        cache_path = os.path.join(REPO_ROOT, 'data_layer', 'card_cache.json')
+        cls.repo = CardRepository(cache_file=cache_path)
         cls.metadata = cls.repo.load_card('glorybringer')
         cls.gamecard = GameCard(metadata=cls.metadata)
 

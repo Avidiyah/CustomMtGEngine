@@ -163,6 +163,7 @@ class StackEngine:
         narrator.log(event)
         return result
 
+
 __all__ = [
     "StackObject",
     "Spell",

@@ -99,5 +99,114 @@ class OraclePipelineTests(unittest.TestCase):
         print('Parsed Clause:', block)
 
 
+class PhaseOneTestSuite(unittest.TestCase):
+    """Comprehensive tests validating the Phase 1 engine architecture."""
+
+    @classmethod
+    def setUpClass(cls):
+        cache_path = os.path.join(REPO_ROOT, 'data_layer', 'card_cache.json')
+        cls.repo = CardRepository(cache_file=cache_path)
+        cls.serra = cls.repo.load_card('serra angel')
+        cls.bolt = cls.repo.load_card('lightning bolt')
+        cls.warden = cls.repo.load_card('soul warden')
+        cls.parser = OracleParser()
+
+    # ------------------------------------------------------------------
+    # CARD DATA TESTS
+    # ------------------------------------------------------------------
+    def test_card_metadata_loading(self):
+        md = self.serra
+        self.assertEqual(md.name.lower(), 'serra angel')
+        self.assertTrue(md.oracle_text)
+        self.assertIn('Creature', md.types)
+        self.assertTrue(md.mana_cost)
+        self.assertTrue(md.oracle_hash)
+        self.assertTrue(md.card_fingerprint)
+        self.assertIn('flying', md.static_abilities)
+
+    def test_oracle_hash_consistency(self):
+        first = self.repo.load_card('soul warden')
+        second = self.repo.load_card('soul warden')
+        self.assertEqual(first.oracle_hash, second.oracle_hash)
+
+    # ------------------------------------------------------------------
+    # TOKENIZER TESTS
+    # ------------------------------------------------------------------
+    def test_token_classification(self):
+        clause = 'Whenever another creature enters, you gain 1 life.'
+        group = tokenize_clause(clause)
+        roles = {t.text: t.type for t in group.tokens}
+        self.assertEqual(roles.get('whenever'), 'trigger_word')
+        self.assertEqual(roles.get('creature'), 'targeting_word')
+        self.assertEqual(roles.get('gain'), 'action_word')
+        self.assertEqual(roles.get('life'), 'resource_term')
+
+    def test_token_group_preserves_raw_clause(self):
+        clause = 'Whenever another creature enters, you gain 1 life.'
+        group = tokenize_clause(clause)
+        self.assertEqual(group.raw, clause)
+
+    # ------------------------------------------------------------------
+    # PARSER + CLAUSEBLOCK TESTS
+    # ------------------------------------------------------------------
+    def test_clauseblock_structure(self):
+        clauses = self.parser.parse(self.serra.oracle_text)
+        self.assertTrue(all(isinstance(c, ClauseBlock) for c in clauses))
+        for c in clauses:
+            self.assertTrue(c.raw)
+            self.assertIsInstance(c.effect_ir, dict)
+
+    def test_effect_ir_presence(self):
+        clauses = self.parser.parse(self.glory_text())
+        for cl in clauses:
+            self.assertIsInstance(cl.effect_ir, dict)
+            self.assertTrue(cl.effect_ir)
+
+    # ------------------------------------------------------------------
+    # STATIC ABILITIES + KEYWORD TESTS
+    # ------------------------------------------------------------------
+    def test_static_keyword_detection(self):
+        self.assertIn('flying', self.serra.static_abilities)
+        self.assertIn('vigilance', self.serra.static_abilities)
+
+    # ------------------------------------------------------------------
+    # FINGERPRINT + INTEGRITY TESTS
+    # ------------------------------------------------------------------
+    def test_clause_fingerprint_uniqueness(self):
+        fp1 = self.serra.card_fingerprint
+        fp2 = self.bolt.card_fingerprint
+        self.assertNotEqual(fp1, fp2)
+
+    def test_token_consistency_on_retokenization(self):
+        clause = 'Lightning Bolt deals 3 damage to any target.'
+        t1 = tokenize_clause(clause)
+        t2 = tokenize_clause(clause)
+        seq1 = [(tok.text, tok.type) for tok in t1.tokens]
+        seq2 = [(tok.text, tok.type) for tok in t2.tokens]
+        self.assertEqual(seq1, seq2)
+
+    # ------------------------------------------------------------------
+    # EDGE CASE TESTS
+    # ------------------------------------------------------------------
+    def test_tokenizer_with_punctuation(self):
+        clause = 'Destroy target creature, then draw a card!'
+        group = tokenize_clause(clause)
+        texts = [t.text for t in group.tokens]
+        self.assertIn('destroy', texts)
+        self.assertIn('draw', texts)
+
+    def test_unknown_tokens_are_tagged(self):
+        clause = 'Blorbity blorb deals 2 damage to floofs!'
+        group = tokenize_clause(clause)
+        unknown_tokens = [t for t in group.tokens if t.text in {'blorbity', 'blorb', 'floofs'}]
+        self.assertTrue(all(t.type == 'unknown' for t in unknown_tokens))
+
+    # Helper to reuse Glorybringer text for effect IR checks
+    def glory_text(self):
+        glory = self.repo.load_card('glorybringer')
+        return glory.oracle_text
+
+
+
 if __name__ == '__main__':
     unittest.main(verbosity=2)

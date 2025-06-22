@@ -30,6 +30,10 @@ class OracleParser:
         self.tokenizer = tokenizer or Tokenizer()
         self.oracle_clauses: List[ClauseBlock] = []
         self.behavior_tree: List[Dict[str, Any]] = []
+        from .EffectParser import EffectParser
+        from .EffectRegistry import OracleASTCompiler
+        self.effect_parser = EffectParser()
+        self.ast_compiler = OracleASTCompiler()
 
     # ------------------------------------------------------------------
     # Public API
@@ -46,8 +50,13 @@ class OracleParser:
             group = tokenize_clause(line)
             clause = parse_token_group(group)
             clause.source_index = idx
+            ast = self.ast_compiler.compile(line)
+            ir = self.effect_parser.parse_ast(ast)
+            clause.effect_ir = ir
+            clause.trigger = ir.get("trigger")
+            clause.condition = ir.get("condition")
             self.oracle_clauses.append(clause)
-            self.behavior_tree.append(clause.effect_ir)
+            self.behavior_tree.append(ir)
             
         return self.oracle_clauses
 

@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from typing import Any, Dict
 from dataclasses import dataclass, field
-
+import os
 import json
 try:
     import requests
@@ -105,8 +105,9 @@ class CardDataManager:
 
 
 # Global manager instance used by ``Card`` objects
-_card_data_manager = CardDataManager()
-_card_data_manager.import_cache("card_cache.json")
+_cache_file = os.path.join(os.path.dirname(__file__), "card_cache.json")
+_card_data_manager = CardDataManager(cache_file=_cache_file)
+_card_data_manager.import_cache(_cache_file)
 
 
 @dataclass

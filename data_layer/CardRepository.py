@@ -51,7 +51,26 @@ class CardMetadata:
 
     def __post_init__(self) -> None:
         self._parse_type_line()
-        self._parse_oracle_text()
+
+        parser = OracleParser()
+        ir_list = parser.parse(self.oracle_text)
+
+        lines = [l.strip() for l in self.oracle_text.split("\n") if l.strip()]
+        self.oracle_clauses = [
+            ClauseBlock(
+                raw=line,
+                effect_ir=ir.action,
+                trigger=ir.trigger,
+                condition=ir.condition,
+            )
+            for line, ir in zip(lines, ir_list)
+        ]
+
+        self.behavior_tree = [ir.action for ir in ir_list]
+
+        text_lower = self.oracle_text.lower()
+        self.static_abilities = [kw for kw in STATIC_KEYWORDS if kw in text_lower]
+
         self.oracle_hash = hashlib.sha1(self.oracle_text.encode()).hexdigest()
         fingerprint_str = f"{self.name}|{self.mana_cost}|{self.type_line}"
         self.card_fingerprint = hashlib.sha1(fingerprint_str.encode()).hexdigest()
@@ -85,17 +104,6 @@ class CardMetadata:
         self.supertypes = supertypes
         self.types = types
         self.subtypes = subtypes
-
-    def _parse_oracle_text(self) -> None:
-        parser = OracleParser()
-        ir_list = parser.parse(self.oracle_text)
-        self.behavior_tree = [ir.action for ir in ir_list]
-        self.oracle_clauses = [
-            ClauseBlock(raw=clause, effect_ir=ir.action, trigger=ir.trigger, condition=ir.condition)
-            for clause, ir in zip(self.oracle_text.split("\n"), ir_list)
-        ]
-        text_lower = self.oracle_text.lower()
-        self.static_abilities = [kw for kw in STATIC_KEYWORDS if kw in text_lower]
 
 
 @dataclass

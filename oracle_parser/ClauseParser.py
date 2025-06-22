@@ -9,9 +9,25 @@ from the old ``TriggerClauseParser``, ``ConditionClauseParser`` and
 
 from __future__ import annotations
 
+from dataclasses import dataclass, field
 from typing import Any, Dict, List, Tuple
 
-from .Tokenizer import Tokenizer, TokenType, Token
+from .Tokenizer import Tokenizer, TokenType, Token, TokenGroup
+
+
+@dataclass
+class ClauseBlock:
+    """Structured representation of an Oracle text clause."""
+
+    raw: str
+    clause_type: str
+    effect_ir: Dict[str, Any]
+    trigger: Dict[str, Any] | None = None
+    condition: Dict[str, Any] | None = None
+    cost: Dict[str, Any] | None = None
+    source_index: int = 0
+    cr_tag: str | None = None
+    referents: List[str] = field(default_factory=list)
 
 _tokenizer = Tokenizer()
 
@@ -31,23 +47,23 @@ def _parse_subject(tokens: List[Token]) -> Dict[str, Any]:
     i = 0
     while i < len(tokens):
         token = tokens[i]
-        if token.value in ["each", "any", "one", "up to"]:
-            subject["amount"] = token.value
-        elif token.value == "a":
+        if token.text in ["each", "any", "one", "up to"]:
+            subject["amount"] = token.text
+        elif token.text == "a":
             subject["amount"] = 1
-        elif token.value in ["you", "your"]:
-            if i + 1 < len(tokens) and tokens[i + 1].value in ["control", "controls"]:
+        elif token.text in ["you", "your"]:
+            if i + 1 < len(tokens) and tokens[i + 1].text in ["control", "controls"]:
                 subject["controller"] = "you"
                 i += 1
             else:
                 subject["controller"] = "you"
-        elif token.value == "opponent":
-            if i + 1 < len(tokens) and tokens[i + 1].value in ["control", "controls"]:
+        elif token.text == "opponent":
+            if i + 1 < len(tokens) and tokens[i + 1].text in ["control", "controls"]:
                 subject["controller"] = "opponent"
                 i += 1
             else:
                 subject["controller"] = "opponent"
-        elif token.type == TokenType.TARGETING_WORD or token.value in [
+        elif token.type == TokenType.TARGETING_WORD or token.text in [
             "creature",
             "land",
             "planeswalker",
@@ -58,18 +74,18 @@ def _parse_subject(tokens: List[Token]) -> Dict[str, Any]:
         ]:
             if subject["type"]:
                 if isinstance(subject["type"], list):
-                    subject["type"].append(token.value)
+                    subject["type"].append(token.text)
                 else:
-                    subject["type"] = [subject["type"], token.value]
+                    subject["type"] = [subject["type"], token.text]
             else:
-                subject["type"] = token.value
+                subject["type"] = token.text
         i += 1
     return subject
 
 
 def _parse_trigger_tokens(tokens: List[Token], start_index: int) -> Tuple[Dict[str, Any], int]:
     """Parse tokens beginning with a trigger word into a structured dict."""
-    trigger_type = tokens[start_index].value
+    trigger_type = tokens[start_index].text
     i = start_index + 1
 
     subject_tokens: List[Token] = []
@@ -82,7 +98,7 @@ def _parse_trigger_tokens(tokens: List[Token], start_index: int) -> Tuple[Dict[s
 
     while i < len(tokens):
         token = tokens[i]
-        if token.value in [",", "then"]:
+        if token.text in [",", "then"]:
             break
         if token.type == TokenType.CONDITION_WORD:
             in_condition = True
@@ -95,8 +111,8 @@ def _parse_trigger_tokens(tokens: List[Token], start_index: int) -> Tuple[Dict[s
                 subject_tokens.append(token)
         i += 1
 
-    combined_subject = " ".join(t.value for t in subject_tokens).lower()
-    combined_action = " ".join(t.value for t in action_tokens).lower()
+    combined_subject = " ".join(t.text for t in subject_tokens).lower()
+    combined_action = " ".join(t.text for t in action_tokens).lower()
 
     if "dies" in combined_subject:
         zone_change = {"from": "battlefield", "to": "graveyard"}
@@ -117,8 +133,8 @@ def _parse_trigger_tokens(tokens: List[Token], start_index: int) -> Tuple[Dict[s
             "type": trigger_type,
             "event": {
                 "subject": subject,
-                "action": " ".join(t.value for t in action_tokens) or None,
-                "condition": " ".join(t.value for t in condition_tokens) if condition_tokens else None,
+                "action": " ".join(t.text for t in action_tokens) or None,
+                "condition": " ".join(t.text for t in condition_tokens) if condition_tokens else None,
                 "zone_change": zone_change,
             },
             "delayed": delayed,
@@ -145,18 +161,18 @@ def _parse_condition_subject(tokens: List[Token]) -> Dict[str, Any]:
         "type": None,
         "subtype": None,
         "count": None,
-        "raw": " ".join(token.value for token in tokens),
+        "raw": " ".join(token.text for token in tokens),
     }
     for i, token in enumerate(tokens):
-        if token.value in ["you", "your"]:
+        if token.text in ["you", "your"]:
             parsed["controller"] = "you"
-        elif token.value == "opponent":
+        elif token.text == "opponent":
             parsed["controller"] = "opponent"
-        elif token.value in ["creature", "artifact", "permanent", "spell"]:
-            parsed["type"] = token.value
-        elif token.value and token.value[0].isupper() and i > 0:
-            parsed["subtype"] = token.value
-        elif token.value in ["another", "a", "one", "two"]:
+        elif token.text in ["creature", "artifact", "permanent", "spell"]:
+            parsed["type"] = token.text
+        elif token.text and token.text[0].isupper() and i > 0:
+            parsed["subtype"] = token.text
+        elif token.text in ["another", "a", "one", "two"]:
             parsed["count"] = ">=1"
     return parsed
 
@@ -166,7 +182,7 @@ def _parse_condition_tokens(tokens: List[Token], start_index: int) -> Tuple[Dict
     i = start_index + 1
     while i < len(tokens):
         token = tokens[i]
-        if token.value in [",", "then"]:
+        if token.text in [",", "then"]:
             i += 1
             break
         condition_tokens.append(token)
@@ -182,6 +198,39 @@ def parse_condition_clause(text: str) -> Dict[str, Any]:
     return parsed
 
 
+def parse_token_group(group: TokenGroup) -> ClauseBlock:
+    """Convert a :class:`TokenGroup` into a :class:`ClauseBlock`."""
+    tokens = group.tokens
+    trigger = None
+    condition = None
+    cost = None
+    clause_type = "action"
+    i = 0
+    if tokens and tokens[0].type == TokenType.TRIGGER_WORD:
+        node, i = _parse_trigger_tokens(tokens, 0)
+        trigger = node.get("trigger")
+        clause_type = "trigger"
+    if i < len(tokens) and tokens[i].type == TokenType.CONDITION_WORD:
+        condition, i = _parse_condition_tokens(tokens, i)
+        if not trigger:
+            clause_type = "condition"
+    action_text = " ".join(t.text for t in tokens[i:])
+    action = {"action": action_text} if action_text else None
+    effect_ir = {
+        "trigger": trigger,
+        "condition": condition,
+        "action": action,
+    }
+    return ClauseBlock(
+        raw=group.raw,
+        clause_type=clause_type,
+        effect_ir=effect_ir,
+        trigger=trigger,
+        condition=condition,
+        cost=cost,
+    )
+
+
 # ---------------------------------------------------------------------------
 # Pattern segmentation
 # ---------------------------------------------------------------------------
@@ -195,13 +244,13 @@ def segment_and_tag_patterns(text: str) -> List[Tuple[str, str]]:
         token = tokens[i]
         if token.type == TokenType.TRIGGER_WORD:
             _, next_i = _parse_trigger_tokens(tokens, i)
-            segment_text = " ".join(t.value for t in tokens[i:next_i])
+            segment_text = " ".join(t.text for t in tokens[i:next_i])
             segments.append((segment_text, "TRIGGER"))
             i = next_i
             continue
         if token.type == TokenType.CONDITION_WORD:
             _, next_i = _parse_condition_tokens(tokens, i)
-            segment_text = " ".join(t.value for t in tokens[i:next_i])
+            segment_text = " ".join(t.text for t in tokens[i:next_i])
             segments.append((segment_text, "CONDITION"))
             i = next_i
             continue
@@ -212,7 +261,7 @@ def segment_and_tag_patterns(text: str) -> List[Tuple[str, str]]:
                 TokenType.CONDITION_WORD,
             ):
                 j += 1
-            segment_text = " ".join(t.value for t in tokens[i:j])
+            segment_text = " ".join(t.text for t in tokens[i:j])
             segments.append((segment_text, "COST"))
             i = j
             continue
@@ -223,7 +272,7 @@ def segment_and_tag_patterns(text: str) -> List[Tuple[str, str]]:
             TokenType.CONDITION_WORD,
         ):
             j += 1
-        segment_text = " ".join(t.value for t in tokens[i:j])
+        segment_text = " ".join(t.text for t in tokens[i:j])
         if segment_text:
             segments.append((segment_text, "ACTION"))
         i = j
@@ -231,8 +280,10 @@ def segment_and_tag_patterns(text: str) -> List[Tuple[str, str]]:
 
 
 __all__ = [
+    "ClauseBlock",
     "parse_trigger_clause",
     "parse_condition_clause",
+    "parse_token_group",
     "segment_and_tag_patterns",
 ]
 

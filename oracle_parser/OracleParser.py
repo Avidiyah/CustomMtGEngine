@@ -7,15 +7,10 @@ representation (IR) of effects without mutating any game state.
 """
 
 from dataclasses import dataclass
-from typing import List, Optional, Dict, Any
+from typing import Any, Dict, List, Optional
 
-from .Tokenizer import Tokenizer, TokenType
-from .EffectRegistry import STANDARD_EFFECTS
-from .ClauseParser import (
-    _parse_trigger_tokens,
-    _parse_condition_tokens,
-)
-
+from .Tokenizer import tokenize_clause, Tokenizer
+from .ClauseParser import parse_token_group, ClauseBlock
 
 @dataclass
 class EffectIR:
@@ -26,77 +21,34 @@ class EffectIR:
     action: Optional[Dict[str, Any]] = None
 
 
+
 class OracleParser:
-    """Parses Oracle text into a list of :class:`EffectIR` objects."""
+    """Parses Oracle text into a list of :class:`ClauseBlock` objects."""
 
     def __init__(self,
-                 tokenizer: Optional[Tokenizer] = None,
-                 effect_registry: Optional[Dict[str, Dict[str, Any]]] = None,
-                 trigger_parser: Optional[callable] = None,
-                 condition_parser: Optional[callable] = None) -> None:
+        tokenizer: Optional[Tokenizer] = None) -> None:
         self.tokenizer = tokenizer or Tokenizer()
-        self.effect_registry = effect_registry or STANDARD_EFFECTS
-        self.trigger_parser = trigger_parser or _parse_trigger_tokens
-        self.condition_parser = condition_parser or _parse_condition_tokens
+        self.oracle_clauses: List[ClauseBlock] = []
+        self.behavior_tree: List[Dict[str, Any]] = []
 
     # ------------------------------------------------------------------
     # Public API
     # ------------------------------------------------------------------
-    def parse(self, card: Any | str) -> List[EffectIR]:
-        """Parse ``card``'s Oracle text into an IR list."""
+    def parse(self, card: Any | str) -> List[ClauseBlock]:
+        """Parse ``card``'s Oracle text into :class:`ClauseBlock` objects."""
         text = card if isinstance(card, str) else getattr(card, "oracle_text", "")
-        clauses = self._split_clauses(text)
-        ir_list: List[EffectIR] = []
-        for clause in clauses:
-            tokens = self.tokenizer.tokenize(clause)
-            ir = self._parse_tokens(tokens)
-            if ir:
-                ir_list.append(ir)
-        return ir_list
+        lines = [l.strip() for l in text.split("\n") if l.strip()]
 
-    # ------------------------------------------------------------------
-    # Internal helpers
-    # ------------------------------------------------------------------
-    def _split_clauses(self, text: str) -> List[str]:
-        """Naive clause splitting on periods and semicolons."""
-        import re
+        self.oracle_clauses = []
+        self.behavior_tree = []
 
-        parts = re.split(r"\. |; |\n", text)
-        return [p.strip() for p in parts if p.strip()]
+        for idx, line in enumerate(lines):
+            group = tokenize_clause(line)
+            clause = parse_token_group(group)
+            clause.source_index = idx
+            self.oracle_clauses.append(clause)
+            self.behavior_tree.append(clause.effect_ir)
+            
+        return self.oracle_clauses
 
-    def _parse_tokens(self, tokens: List[Any]) -> Optional[EffectIR]:
-        trigger: Optional[Dict[str, Any]] = None
-        condition: Optional[Dict[str, Any]] = None
-
-        i = 0
-        while i < len(tokens):
-            token = tokens[i]
-            if token.type == TokenType.TRIGGER_WORD:
-                trig, new_i = self.trigger_parser(tokens, i)
-                trigger = trig.get("trigger")
-                i = new_i
-                continue
-            if token.type == TokenType.CONDITION_WORD:
-                condition, new_i = self.condition_parser(tokens, i)
-                i = new_i
-                break
-            i += 1
-
-        action_tokens = tokens[i:]
-        action_text = " ".join(t.value for t in action_tokens)
-        action = self._match_action(action_text)
-        if not action:
-            action = {"action": "unparsed_effect", "raw_text": action_text}
-
-        return EffectIR(trigger=trigger, condition=condition, action=action)
-
-    def _match_action(self, text: str) -> Optional[Dict[str, Any]]:
-        text = text.lower()
-        for entry in self.effect_registry.values():
-            phrases = entry.get("phrases", [])
-            if any(p in text for p in phrases):
-                parse_fn = entry.get("parse")
-                return parse_fn(text)
-        return None
-
-__all__ = ["OracleParser", "EffectIR"]
+__all__ = ["OracleParser", "EffectIR", "ClauseBlock"]

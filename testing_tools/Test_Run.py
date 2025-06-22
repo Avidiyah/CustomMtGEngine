@@ -5,12 +5,10 @@ from dataclasses import dataclass
 from typing import Any, Dict, List
 
 # Ensure repository root is on sys.path
-REPO_ROOT = os.path.abspath(os.path.dirname(__file__))
-while not os.path.exists(os.path.join(REPO_ROOT, 'data_layer')):
-    parent = os.path.dirname(REPO_ROOT)
-    if parent == REPO_ROOT:
-        break
-    REPO_ROOT = parent
+# This test file lives in ``testing_tools`` at the repository root, so the
+# parent directory contains ``data_layer``.  Avoid walking up directories that
+# may inadvertently select another engine version when multiple copies exist.
+REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 if REPO_ROOT not in sys.path:
     sys.path.insert(0, REPO_ROOT)
 

@@ -5,10 +5,14 @@ import unittest
 from dataclasses import dataclass
 from typing import Optional, Dict, Any, List
 
-# Ensure repository root is on sys.path so `data_layer` resolves when run from
-# any directory.  This lets `python testing_tools/Test_Run.py` work just like
-# running from repo root.
+# Ensure repository root is on sys.path. We may be invoked from ``testing_tools``
+# or the repo root, so walk upward until ``data_layer`` is found.
 REPO_ROOT = os.path.abspath(os.path.dirname(__file__))
+while not os.path.exists(os.path.join(REPO_ROOT, "data_layer")):
+    parent = os.path.dirname(REPO_ROOT)
+    if parent == REPO_ROOT:
+        break
+    REPO_ROOT = parent
 if REPO_ROOT not in sys.path:
     sys.path.insert(0, REPO_ROOT)
 
@@ -48,7 +52,6 @@ oracle_pkg = types.ModuleType('oracle_parser')
 sys.modules['oracle_parser'] = oracle_pkg
 
 # -------------------------------------------------------------
-import unittest
 from data_layer.CardRepository import CardRepository, GameCard, CardMetadata
 
 class CardRepositoryPhaseTests(unittest.TestCase):

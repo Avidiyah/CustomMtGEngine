@@ -11,7 +11,19 @@ from typing import Any, Dict, List
 REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 if REPO_ROOT not in sys.path:
     sys.path.insert(0, REPO_ROOT)
+PARENT_ROOT = os.path.dirname(REPO_ROOT)
+if PARENT_ROOT not in sys.path:
+    sys.path.insert(0, PARENT_ROOT)
 
+# Create a package alias so modules using relative imports with '..' resolve.
+import types
+import importlib
+PKG_ALIAS = 'engine_test_pkg'
+pkg = types.ModuleType(PKG_ALIAS)
+pkg.__path__ = [REPO_ROOT]
+sys.modules[PKG_ALIAS] = pkg
+importlib.import_module('.event_system', package=PKG_ALIAS)
+importlib.import_module('.data_layer', package=PKG_ALIAS)
 # -------------------------------------------------------------
 # Imports from the engine
 # -------------------------------------------------------------
@@ -206,6 +218,93 @@ class PhaseOneTestSuite(unittest.TestCase):
         glory = self.repo.load_card('glorybringer')
         return glory.oracle_text
 
+
+
+
+
+# -------------------------------------------------------------
+# Phase 2.1 stack resolution tests
+# -------------------------------------------------------------
+
+STACK_MODULE = importlib.import_module(
+    '.stack_system.StackEngine', package=PKG_ALIAS
+)
+StackEngine = STACK_MODULE.StackEngine
+events_mod = importlib.import_module('.event_system.GameEvent', package=PKG_ALIAS)
+StackFizzleEvent = events_mod.StackFizzleEvent
+StackResolutionEvent = events_mod.StackResolutionEvent
+StackDeclinedEvent = events_mod.StackDeclinedEvent
+
+
+class TestNarrator:
+    """Minimal narrator stub that records logged events."""
+
+    def __init__(self):
+        self.events = []
+
+    def log(self, event):
+        self.events.append(event)
+
+
+class MockStackObject:
+    """Simplified stand-in for real stack objects."""
+
+    def __init__(self, name, legal=True, optional=False, decline=False):
+        self.name = name
+        self.legal = legal
+        self.optional = optional
+        self.decline = decline
+
+    def __str__(self):
+        return self.name
+
+    def display_name(self):
+        return self.name
+
+    @property
+    def is_optional(self):
+        return self.optional
+
+    def controller_wants_to_resolve(self):
+        return not self.decline
+
+    def has_legal_targets(self, game_state):
+        return self.legal
+
+    def resolve(self, game_state):
+        return "Resolved"
+
+
+class TestPhase21StackResolution(unittest.TestCase):
+    def setUp(self):
+        self.stack = StackEngine()
+        STACK_MODULE.narrator = TestNarrator()
+
+    def test_fizzle_on_illegal_targets(self):
+        obj = MockStackObject("FizzlingSpell", legal=False)
+        self.stack.push(obj)
+        result = self.stack.resolve_top(None)
+        self.assertEqual(
+            result,
+            "FizzlingSpell fizzles — all targets illegal.",
+        )
+        self.assertIsInstance(STACK_MODULE.narrator.events[0], StackFizzleEvent)
+
+    def test_decline_optional_effect(self):
+        obj = MockStackObject(
+            "MaySpell", legal=True, optional=True, decline=True
+        )
+        self.stack.push(obj)
+        result = self.stack.resolve_top(None)
+        self.assertEqual(result, "MaySpell resolution declined.")
+        self.assertIsInstance(STACK_MODULE.narrator.events[0], StackDeclinedEvent)
+
+    def test_successful_resolution(self):
+        obj = MockStackObject("ValidSpell", legal=True)
+        self.stack.push(obj)
+        result = self.stack.resolve_top(None)
+        self.assertEqual(result, "Resolved")
+        self.assertIsInstance(STACK_MODULE.narrator.events[0], StackResolutionEvent)
 
 
 if __name__ == '__main__':

@@ -1,19 +1,14 @@
 import os
 import sys
 import unittest
-from dataclasses import dataclass
-from typing import Any, Dict, List
+import types
+import importlib
+from importlib.machinery import ModuleSpec
 
-# Ensure repository root is on sys.path
-# This test file lives in ``testing_tools`` at the repository root, so the
-# parent directory contains ``data_layer``.  Avoid walking up directories that
-# may inadvertently select another engine version when multiple copies exist.
+# Ensure repository root is available for dynamic imports
 REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 if REPO_ROOT not in sys.path:
     sys.path.insert(0, REPO_ROOT)
-PARENT_ROOT = os.path.dirname(REPO_ROOT)
-if PARENT_ROOT not in sys.path:
-    sys.path.insert(0, PARENT_ROOT)
 
 # Create a package alias so modules using relative imports with '..' resolve.
 import types

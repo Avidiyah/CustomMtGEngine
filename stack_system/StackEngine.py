@@ -11,6 +11,12 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, List, Optional
 
+from ..event_system import (
+    StackDeclinedEvent,
+    StackFizzleEvent,
+    StackResolutionEvent,
+)
+
 from ..data_layer.CardEntities import Card
 from ..effect_execution import EffectEngine, EffectContext
 
@@ -27,6 +33,22 @@ class StackObject:
     zone_origin: str = ""
     resolved: bool = False
     engine: EffectEngine = field(default_factory=EffectEngine, init=False)
+    
+    # ------------------------------------------------------------------
+    # Optional resolution helpers
+    # ------------------------------------------------------------------
+    @property
+    def is_optional(self) -> bool:
+        text = getattr(self.source, "oracle_text", "")
+        return "you may" in text.lower()
+
+    def controller_wants_to_resolve(self) -> bool:
+        return True
+
+    def has_legal_targets(self, game_state: Any) -> bool:
+        if not self.targets:
+            return True
+        return any(self._is_target_legal(t) for t in self.targets)
 
     def resolve(self, game_state: Any) -> str:
         """Resolve this stack object using :class:`EffectEngine`."""
@@ -124,8 +146,22 @@ class StackEngine:
         obj = self.pop()
         if obj is None:
             return "Stack is empty."
-        return obj.resolve(game_state)
+        if not obj.has_legal_targets(game_state):
+            event = StackFizzleEvent(obj)
+            narrator.log(event)
+            obj.resolved = True
+            return f"{obj.display_name()} fizzles — all targets illegal."
 
+        if obj.is_optional and not obj.controller_wants_to_resolve():
+            event = StackDeclinedEvent(obj)
+            narrator.log(event)
+            obj.resolved = True
+            return f"{obj.display_name()} resolution declined."
+
+        result = obj.resolve(game_state)
+        event = StackResolutionEvent(obj, result)
+        narrator.log(event)
+        return result
 
 __all__ = [
     "StackObject",

@@ -113,5 +113,15 @@
     "oracle_text": "({T}: Add {U}.)",
     "type_line": "Basic Land \u2014 Island",
     "mana_cost": ""
+  },
+  "lightning bolt": {
+    "oracle_text": "Lightning Bolt deals 3 damage to any target.",
+    "type_line": "Instant",
+    "mana_cost": "{R}"
+  },
+  "serra angel": {
+    "oracle_text": "Flying, vigilance",
+    "type_line": "Creature \u2014 Angel",
+    "mana_cost": "{3}{W}{W}"
   }
 }

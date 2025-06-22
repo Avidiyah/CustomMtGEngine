@@ -1,29 +1,14 @@
 import os
 import sys
 import unittest
-import types
-import importlib
-from importlib.machinery import ModuleSpec
+from dataclasses import dataclass
+from typing import Any, Dict, List
 
-# Ensure repository root is available for dynamic imports
+# Ensure repository root is on sys.path
 REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 if REPO_ROOT not in sys.path:
     sys.path.insert(0, REPO_ROOT)
 
-# Create a package alias so modules using relative imports with '..' resolve.
-import types
-import importlib
-from importlib.machinery import ModuleSpec
-
-PKG_ALIAS = 'engine_test_pkg'
-pkg = types.ModuleType(PKG_ALIAS)
-pkg.__path__ = [REPO_ROOT]
-pkg.__spec__ = ModuleSpec(PKG_ALIAS, loader=None, is_package=True)
-spec.submodule_search_locations = [REPO_ROOT]
-pkg.__spec__ = spec
-sys.modules[PKG_ALIAS] = pkg
-importlib.import_module('.event_system', package=PKG_ALIAS)
-importlib.import_module('.data_layer', package=PKG_ALIAS)
 # -------------------------------------------------------------
 # Imports from the engine
 # -------------------------------------------------------------
@@ -32,7 +17,6 @@ from oracle_parser.OracleParser import OracleParser
 from oracle_parser.Tokenizer import Token, TokenGroup, tokenize_clause
 from oracle_parser.ClauseParser import parse_token_group, ClauseBlock
 from oracle_parser.RuleLexicon import STATIC_KEYWORDS
-
 
 class OraclePipelineTests(unittest.TestCase):
     @classmethod
@@ -45,9 +29,6 @@ class OraclePipelineTests(unittest.TestCase):
         cls.gamecard = GameCard(metadata=cls.glory)
         cls.parser = OracleParser()
 
-    # ------------------------------------------------------------------
-    # Phase 1.1 tests
-    # ------------------------------------------------------------------
     def test_repository_load(self):
         self.assertIsInstance(self.glory, CardMetadata)
         self.assertIsInstance(self.bolt, CardMetadata)
@@ -69,9 +50,6 @@ class OraclePipelineTests(unittest.TestCase):
         self.assertEqual(gc.zone, 'library')
         self.assertTrue(gc.is_creature())
 
-    # ------------------------------------------------------------------
-    # Phase 1.2 tests
-    # ------------------------------------------------------------------
     def test_oracle_clauses_structure(self):
         clauses = self.parser.parse(self.bolt.oracle_text)
         lines = [l.strip() for l in self.bolt.oracle_text.split('\n') if l.strip()]
@@ -89,9 +67,6 @@ class OraclePipelineTests(unittest.TestCase):
         self.assertTrue(all(isinstance(node, dict) for node in tree))
         print('Behavior Tree:', tree)
 
-    # ------------------------------------------------------------------
-    # Phase 1.3 tests
-    # ------------------------------------------------------------------
     def test_tokenizer_typing(self):
         clause = 'Whenever another creature enters, you gain 1 life.'
         group = tokenize_clause(clause)
@@ -110,10 +85,7 @@ class OraclePipelineTests(unittest.TestCase):
         self.assertIn('trigger', block.effect_ir)
         print('Parsed Clause:', block)
 
-
 class PhaseOneTestSuite(unittest.TestCase):
-    """Comprehensive tests validating the Phase 1 engine architecture."""
-
     @classmethod
     def setUpClass(cls):
         cache_path = os.path.join(REPO_ROOT, 'data_layer', 'card_cache.json')
@@ -123,9 +95,6 @@ class PhaseOneTestSuite(unittest.TestCase):
         cls.warden = cls.repo.load_card('soul warden')
         cls.parser = OracleParser()
 
-    # ------------------------------------------------------------------
-    # CARD DATA TESTS
-    # ------------------------------------------------------------------
     def test_card_metadata_loading(self):
         md = self.serra
         self.assertEqual(md.name.lower(), 'serra angel')
@@ -141,9 +110,6 @@ class PhaseOneTestSuite(unittest.TestCase):
         second = self.repo.load_card('soul warden')
         self.assertEqual(first.oracle_hash, second.oracle_hash)
 
-    # ------------------------------------------------------------------
-    # TOKENIZER TESTS
-    # ------------------------------------------------------------------
     def test_token_classification(self):
         clause = 'Whenever another creature enters, you gain 1 life.'
         group = tokenize_clause(clause)
@@ -158,9 +124,6 @@ class PhaseOneTestSuite(unittest.TestCase):
         group = tokenize_clause(clause)
         self.assertEqual(group.raw, clause)
 
-    # ------------------------------------------------------------------
-    # PARSER + CLAUSEBLOCK TESTS
-    # ------------------------------------------------------------------
     def test_clauseblock_structure(self):
         clauses = self.parser.parse(self.serra.oracle_text)
         self.assertTrue(all(isinstance(c, ClauseBlock) for c in clauses))
@@ -174,16 +137,10 @@ class PhaseOneTestSuite(unittest.TestCase):
             self.assertIsInstance(cl.effect_ir, dict)
             self.assertTrue(cl.effect_ir)
 
-    # ------------------------------------------------------------------
-    # STATIC ABILITIES + KEYWORD TESTS
-    # ------------------------------------------------------------------
     def test_static_keyword_detection(self):
         self.assertIn('flying', self.serra.static_abilities)
         self.assertIn('vigilance', self.serra.static_abilities)
 
-    # ------------------------------------------------------------------
-    # FINGERPRINT + INTEGRITY TESTS
-    # ------------------------------------------------------------------
     def test_clause_fingerprint_uniqueness(self):
         fp1 = self.serra.card_fingerprint
         fp2 = self.bolt.card_fingerprint
@@ -197,9 +154,6 @@ class PhaseOneTestSuite(unittest.TestCase):
         seq2 = [(tok.text, tok.type) for tok in t2.tokens]
         self.assertEqual(seq1, seq2)
 
-    # ------------------------------------------------------------------
-    # EDGE CASE TESTS
-    # ------------------------------------------------------------------
     def test_tokenizer_with_punctuation(self):
         clause = 'Destroy target creature, then draw a card!'
         group = tokenize_clause(clause)
@@ -213,42 +167,26 @@ class PhaseOneTestSuite(unittest.TestCase):
         unknown_tokens = [t for t in group.tokens if t.text in {'blorbity', 'blorb', 'floofs'}]
         self.assertTrue(all(t.type == 'unknown' for t in unknown_tokens))
 
-    # Helper to reuse Glorybringer text for effect IR checks
     def glory_text(self):
         glory = self.repo.load_card('glorybringer')
         return glory.oracle_text
 
-
-
-
-
 # -------------------------------------------------------------
 # Phase 2.1 stack resolution tests
 # -------------------------------------------------------------
+from stack_system.StackEngine import StackEngine
+from event_system.GameEvent import StackFizzleEvent, StackResolutionEvent, StackDeclinedEvent
 
-STACK_MODULE = importlib.import_module(
-    '.stack_system.StackEngine', package=PKG_ALIAS
-)
-StackEngine = STACK_MODULE.StackEngine
-events_mod = importlib.import_module('.event_system.GameEvent', package=PKG_ALIAS)
-StackFizzleEvent = events_mod.StackFizzleEvent
-StackResolutionEvent = events_mod.StackResolutionEvent
-StackDeclinedEvent = events_mod.StackDeclinedEvent
-
+STACK_MODULE = sys.modules["stack_system.StackEngine"]
 
 class TestNarrator:
-    """Minimal narrator stub that records logged events."""
-
     def __init__(self):
         self.events = []
 
     def log(self, event):
         self.events.append(event)
 
-
 class MockStackObject:
-    """Simplified stand-in for real stack objects."""
-
     def __init__(self, name, legal=True, optional=False, decline=False):
         self.name = name
         self.legal = legal
@@ -274,7 +212,6 @@ class MockStackObject:
     def resolve(self, game_state):
         return "Resolved"
 
-
 class TestPhase21StackResolution(unittest.TestCase):
     def setUp(self):
         self.stack = StackEngine()
@@ -284,16 +221,11 @@ class TestPhase21StackResolution(unittest.TestCase):
         obj = MockStackObject("FizzlingSpell", legal=False)
         self.stack.push(obj)
         result = self.stack.resolve_top(None)
-        self.assertEqual(
-            result,
-            "FizzlingSpell fizzles — all targets illegal.",
-        )
+        self.assertEqual(result, "FizzlingSpell fizzles — all targets illegal.")
         self.assertIsInstance(STACK_MODULE.narrator.events[0], StackFizzleEvent)
 
     def test_decline_optional_effect(self):
-        obj = MockStackObject(
-            "MaySpell", legal=True, optional=True, decline=True
-        )
+        obj = MockStackObject("MaySpell", legal=True, optional=True, decline=True)
         self.stack.push(obj)
         result = self.stack.resolve_top(None)
         self.assertEqual(result, "MaySpell resolution declined.")
@@ -305,7 +237,6 @@ class TestPhase21StackResolution(unittest.TestCase):
         result = self.stack.resolve_top(None)
         self.assertEqual(result, "Resolved")
         self.assertIsInstance(STACK_MODULE.narrator.events[0], StackResolutionEvent)
-
 
 if __name__ == '__main__':
     unittest.main(verbosity=2)

@@ -53,7 +53,55 @@
       ],
       "rollback": "Temporarily mark this entry reverted to allow emergency hotfixes; create retroactive HB entries immediately after.",
       "notes": "Standing policy; applies across all modules and repos tied to the engine."
-    }
+    },
+    {
+  "change_id": "HB-20250809-003",
+  "status": "proposed",
+  "owner": "John McClure",
+  "summary": "Canonicalize core type locations; remove duplicates",
+  "intent": "Eliminate duplicate definitions of Card and CardComponent in data_layer/CardEntities.py and enforce single canonical files.",
+  "scope": ["data_layer/CardEntities.py", "Card.py", "CardComponent.py"],
+  "handles": ["Type canonicalization", "De-duplication"],
+  "dependencies": ["HB-20250809-002"],
+  "invariants": [
+    "Card is defined only in Card.py",
+    "CardComponent is defined only in CardComponent.py",
+    "No other file may declare class Card or class CardComponent",
+    "Re-exports allowed; subclasses must not be named exactly 'Card' or 'CardComponent'"
+  ],
+  "risks": ["Broken imports where CardEntities.py was referenced"],
+  "tests": [
+    "No '^class\\s+Card\\b' outside Card.py",
+    "No '^class\\s+CardComponent\\b' outside CardComponent.py",
+    "All imports updated to canonical files"
+  ],
+  "rollback": "Recreate prior classes in CardEntities.py and revert import changes",
+  "notes": "Duplicates at data_layer/CardEntities.py:21 (CardComponent) and :114 (Card)."
+},
+{
+  "change_id": "HB-20250809-004",
+  "status": "proposed",
+  "owner": "John McClure",
+  "summary": "Document/assert invariants in OracleRulesLayer and EffectParser",
+  "intent": "Make key rules explicit and testable via comments and asserts.",
+  "scope": ["oracle_parser/OracleRulesLayer.py", "oracle_parser/EffectParser.py"],
+  "handles": ["Rules documentation", "Invariant enforcement"],
+  "dependencies": ["HB-20250809-002"],
+  "invariants": [
+    "Parenthetical reminder text is ignored for logic",
+    "Flavor text ignored; only game-affecting Oracle text parsed",
+    "'Any target' includes any valid damageable permanent or player per CR",
+    "Parsing must not introduce effects not present in Oracle text"
+  ],
+  "risks": ["Asserts may expose hidden inconsistencies initially"],
+  "tests": [
+    "Files contain an 'Invariants' section",
+    "Assertions/checks align with each invariant",
+    "Unit tests exercise at least one case per invariant"
+  ],
+  "rollback": "Remove added invariant comments/asserts"
+}
+
   ]
 }
 

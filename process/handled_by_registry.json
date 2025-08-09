@@ -1,1 +1,59 @@
 {
+  "registry_version": "1.0",
+  "generated_at": "2025-08-09",
+  "project": "MtG Engine",
+  "entries": [
+    {
+      "change_id": "HB-20250809-001",
+      "status": "applied",
+      "owner": "John McClure",
+      "summary": "Establish handled-by registry and governance rules",
+      "intent": "Create a single source of truth for proposed/approved/applied changes to prevent redundancy and cross-module conflicts.",
+      "scope": ["process/handled_by_registry.json"],
+      "handles": ["Change logging", "Ownership attribution", "Approval workflow", "Traceability"],
+      "dependencies": [],
+      "invariants": [
+        "Every change must have an HB entry before design, code, or docs are modified.",
+        "Each HB entry must declare explicit scope and invariants.",
+        "Entries must be uniquely identified by change_id and immutable once applied.",
+        "Allowed statuses: proposed | approved | applied | reverted | duplicate."
+      ],
+      "risks": [
+        "Process friction can delay urgent fixes.",
+        "Incorrect or overly broad scoping may cause ownership conflicts."
+      ],
+      "tests": [
+        "Create a dummy change and walk it through proposed→approved→applied.",
+        "Attempt to create an overlapping entry and verify duplicate detection policy."
+      ],
+      "rollback": "Archive handled_by_registry.json and revert to previous ad-hoc process; document decision and rationale.",
+      "notes": "Bootstrap entry; self-referential and marked applied upon creation."
+    },
+    {
+      "change_id": "HB-20250809-002",
+      "status": "applied",
+      "owner": "John McClure",
+      "summary": "Enforce implementation gating via HB approval",
+      "intent": "Prevent unapproved module/schema/code changes and ensure all work is traceable to an approved HB entry.",
+      "scope": ["*"],
+      "handles": ["Implementation gating", "Change authorization"],
+      "dependencies": ["HB-20250809-001"],
+      "invariants": [
+        "No code, schema, or module changes may be produced until an HB entry with status 'approved' covers the exact scope.",
+        "If a request would produce code without approval, return exactly: {\"error\":\"IMPLEMENTATION_NOT_ALLOWED\",\"reason\":\"No approved HB entry authorizing code.\"}",
+        "If an existing component already handles the problem, new entries must use status 'duplicate' and stop."
+      ],
+      "risks": [
+        "Blocks exploratory spikes unless explicitly authorized.",
+        "May slow hotfixes if approval is not streamlined."
+      ],
+      "tests": [
+        "Attempt code generation without an approved entry and verify the mandated error object is returned.",
+        "Approve a targeted entry for a small scope and verify implementation is permitted only within that scope."
+      ],
+      "rollback": "Temporarily mark this entry reverted to allow emergency hotfixes; create retroactive HB entries immediately after.",
+      "notes": "Standing policy; applies across all modules and repos tied to the engine."
+    }
+  ]
+}
+

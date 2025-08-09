@@ -55,52 +55,160 @@
       "notes": "Standing policy; applies across all modules and repos tied to the engine."
     },
     {
-    "change_id": "HB-20250809-003",
-    "status": "proposed",
-    "owner": "John McClure",
-    "summary": "Canonicalize core type locations; remove duplicates",
-    "intent": "Eliminate duplicate definitions of Card and CardComponent in data_layer/CardEntities.py and enforce single canonical files.",
-    "scope": ["data_layer/CardEntities.py", "Card.py", "CardComponent.py"],
-    "handles": ["Type canonicalization", "De-duplication"],
-    "dependencies": ["HB-20250809-002"],
-    "invariants": [
+      "change_id": "HB-20250809-003",
+      "status": "proposed",
+      "owner": "John McClure",
+      "summary": "Canonicalize core type locations; remove duplicates",
+      "intent": "Eliminate duplicate definitions of Card and CardComponent in data_layer/CardEntities.py and enforce single canonical files.",
+      "scope": ["data_layer/CardEntities.py", "Card.py", "CardComponent.py"],
+      "handles": ["Type canonicalization", "De-duplication"],
+      "dependencies": ["HB-20250809-002"],
+      "invariants": [
         "Card is defined only in Card.py",
         "CardComponent is defined only in CardComponent.py",
         "No other file may declare class Card or class CardComponent",
         "Re-exports allowed; subclasses must not be named exactly 'Card' or 'CardComponent'"
-    ],
-    "risks": ["Broken imports where CardEntities.py was referenced"],
-    "tests": [
+      ],
+      "risks": ["Broken imports where CardEntities.py was referenced"],
+      "tests": [
         "No '^class\\s+Card\\b' outside Card.py",
         "No '^class\\s+CardComponent\\b' outside CardComponent.py",
         "All imports updated to canonical files"
-    ],
-    "rollback": "Recreate prior classes in CardEntities.py and revert import changes",
-    "notes": "Duplicates at data_layer/CardEntities.py:21 (CardComponent) and :114 (Card)."
+      ],
+      "rollback": "Recreate prior classes in CardEntities.py and revert import changes",
+      "notes": "Duplicates at data_layer/CardEntities.py:21 (CardComponent) and :114 (Card)."
     },
     {
-    "change_id": "HB-20250809-004",
-    "status": "proposed",
-    "owner": "John McClure",
-    "summary": "Document/assert invariants in OracleRulesLayer and EffectParser",
-    "intent": "Make key rules explicit and testable via comments and asserts.",
-    "scope": ["oracle_parser/OracleRulesLayer.py", "oracle_parser/EffectParser.py"],
-    "handles": ["Rules documentation", "Invariant enforcement"],
-    "dependencies": ["HB-20250809-002"],
-    "invariants": [
+      "change_id": "HB-20250809-004",
+      "status": "proposed",
+      "owner": "John McClure",
+      "summary": "Document/assert invariants in OracleRulesLayer and EffectParser",
+      "intent": "Make key rules explicit and testable via comments and asserts.",
+      "scope": ["oracle_parser/OracleRulesLayer.py", "oracle_parser/EffectParser.py"],
+      "handles": ["Rules documentation", "Invariant enforcement"],
+      "dependencies": ["HB-20250809-002"],
+      "invariants": [
         "Parenthetical reminder text is ignored for logic",
         "Flavor text ignored; only game-affecting Oracle text parsed",
         "'Any target' includes any valid damageable permanent or player per CR",
         "Parsing must not introduce effects not present in Oracle text"
-    ],
-    "risks": ["Asserts may expose hidden inconsistencies initially"],
-    "tests": [
+      ],
+      "risks": ["Asserts may expose hidden inconsistencies initially"],
+      "tests": [
         "Files contain an 'Invariants' section",
         "Assertions/checks align with each invariant",
         "Unit tests exercise at least one case per invariant"
-    ],
-    "rollback": "Remove added invariant comments/asserts"
+      ],
+      "rollback": "Remove added invariant comments/asserts"
+    },
+    {
+      "change_id": "HB-20250809-005",
+      "status": "proposed",
+      "owner": "John McClure",
+      "summary": "Implement missing combat abilities and damage step rules",
+      "intent": "Complete the CombatEngine to fully enforce combat phase rules and keyword abilities (menace, first strike/double strike, lifelink, etc.), ensuring damage assignment occurs in proper sequence and all special combat conditions are handled. This change makes combat resolution rules-accurate and prepares hooks for triggers and state-based effects.",
+      "scope": ["CombatEngine.py"],
+      "handles": [
+        "Menace & multi-block rules",
+        "First/Double strike damage steps",
+        "Lifelink damage handling",
+        "Combat timing enforcement"
+      ],
+      "dependencies": ["HB-20250809-002"],
+      "invariants": [
+        "If an attacking creature has menace, it cannot be blocked by fewer than two creatures (block assignments with only one blocker are invalid).",
+        "Creatures with first strike or double strike deal combat damage in a separate first-strike damage step before normal damage. Double strike creatures survive to deal damage in the normal step if still on the battlefield.",
+        "Creatures with lifelink cause their controller to gain life equal to the damage they deal in combat (simultaneous with damage dealing).",
+        "Damage assignment follows rule 510: attackers must assign lethal damage to each blocker (considering deathtouch as 1 damage lethal) in order before assigning any excess to the next blocker or trampling over to the defender.",
+        "No creatures are destroyed or removed as a direct result of combat damage until state-based actions are checked post-combat (lethal damage marked but not processed until SBA)."
+      ],
+      "risks": [
+        "Altering combat resolution flow may introduce bugs if not all edge cases (e.g., multiple blockers ordering, simultaneous death) are handled consistently with state-based actions and triggers.",
+        "New lifelink or strike interactions might conflict with unimplemented trigger or effect systems (for example, lifelink life gain might need immediate handling to avoid negative life before SBA)."
+      ],
+      "tests": [
+        "A creature with menace attacked by one blocker should result in an illegal block message or no block being assigned.",
+        "A first strike creature battling a normal creature should survive and the normal creature should die (via SBA) without dealing damage back in the normal damage step.",
+        "A double strike creature should deal damage twice (first strike step and normal step) if it remains in play after the first strike damage.",
+        "A creature with lifelink that deals combat damage should cause its controller’s life total to increase accordingly in the same combat damage event.",
+        "Multiple blockers scenario: an attacker with trample and 2 blockers assigns lethal damage to the first blocker, then remaining damage to the second (and any leftover to the player), verified by resulting life and damage marked on each."
+      ],
+      "rollback": "Revert CombatEngine logic to single-step damage resolution and remove new checks (disabling separate damage step and ability-specific rules) if critical errors in combat flow are observed.",
+      "notes": "Implements combat rules per CR 507-510 and 702 (menace, trample, first strike, lifelink). This is a prerequisite for accurate combat results and downstream trigger processing."
+    },
+    {
+      "change_id": "HB-20250809-006",
+      "status": "proposed",
+      "owner": "John McClure",
+      "summary": "Add comprehensive Card state tracking and helper methods",
+      "intent": "Enhance the Card class to include all necessary in-game state fields (such as current zone, controller, tapped status, summoning sickness flag, damage marked, power/toughness for creatures) and convenience methods. This ensures that game rules (e.g., can attack/block, dies to damage) can be determined from a Card object itself, improving rule enforcement accuracy and easing AI evaluation of card status.",
+      "scope": ["data_layer/CardEntities.py"],
+      "handles": [
+        "Zone & controller tracking",
+        "Tap/untap & summoning sickness",
+        "Damage marking on permanents",
+        "Type/ability query methods"
+      ],
+      "dependencies": ["HB-20250809-002"],
+      "invariants": [
+        "Every Card representing a permanent has a 'zone' attribute indicating its current zone (e.g., 'battlefield', 'hand') and a 'controller' pointing to the owning Player; these update whenever the card moves zones.",
+        "Card objects have a boolean 'tapped' attribute (and related status flags like 'summoning_sick') that reflects their current tapped state and whether they entered the battlefield this turn without haste.",
+        "Damage dealt to creatures is accumulated in a 'damage' field on the Card, and is reset appropriately (e.g., during Cleanup or when the creature leaves battlefield), supporting proper SBA checks for lethal damage.",
+        "Helper methods like Card.is_type('Creature'), Card.has_keyword('Flying'), and Card.can_attack() return correct information based on the card’s type_line and state (e.g., can_attack() false if summoning_sick and no haste, or if tapped).",
+        "All new Card fields are consistently initialized (e.g., tapped=False, damage=0, summoning_sick=True on creation if entering battlefield) and used in existing engine checks (combat, casting) instead of ad-hoc getattr checks."
+      ],
+      "risks": [
+        "Changes to the Card class could break code that implicitly relied on missing attributes (e.g., if other modules were setting attributes dynamically, they must now use the official fields).",
+        "Power/toughness values for creature cards may need careful initialization (especially for cards with '*' or variable stats) to avoid treating them as None/0 incorrectly in combat or SBA logic."
+      ],
+      "tests": [
+        "Create a creature card and simulate playing it: after entering the battlefield, verify card.zone == 'battlefield', card.controller is set, card.summoning_sick is True (and flips off by next turn), and card.tapped is False (unless an effect says otherwise).",
+        "Tap and untap a card (via a mock ability or manual flag) and ensure card.tapped changes appropriately and affects Card.can_attack() return value.",
+        "Deal damage to a creature (through combat or direct effect) and check that card.damage accumulates correctly and triggers destruction via SBA when damage >= toughness.",
+        "Use Card.is_type and Card.has_keyword on various card instances (creature vs sorcery, flying keyword in oracle_text etc.) to confirm they correctly identify card properties.",
+        "Ensure that no legacy code path (like CombatEngine or GameState.move_card) breaks by running the test suite – they should now interact with the new Card fields (zone, controller, etc.) seamlessly."
+      ],
+      "rollback": "If issues arise, remove or comment out the new Card attributes and methods, restoring reliance on dynamic attributes. Revert any engine logic that was modified to use the new fields, and document which rule enforcement had to be deferred.",
+      "notes": "Brings Card representation closer to full game state fidelity. Complements HB-20250809-003 by building on a single canonical Card class definition, adding state that was noted as missing in Deep Review."
+    },
+    {
+      "change_id": "HB-20250809-007",
+      "status": "proposed",
+      "owner": "John McClure",
+      "summary": "Introduce structured game event logging for AI and debugging",
+      "intent": "Implement a unified logging system that records key game events and state changes in a structured format. This includes combat events (damage assignments, life changes), card movements (zone transitions), spell/ability resolutions, and replacement effect applications. The logs will enable AI modules to observe the sequence of actions and outcomes, and assist developers in debugging complex interactions.",
+      "scope": [
+        "CombatEngine.py",
+        "stack_system/ReplacementEffectManager.py",
+        "game_core/GameState.py"
+      ],
+      "handles": [
+        "Combat damage logging",
+        "Effect/Replacement tracking",
+        "State change snapshot",
+        "AI observability hooks"
+      ],
+      "dependencies": ["HB-20250809-002"],
+      "invariants": [
+        "Every combat damage event is logged with details (attacker, defender, damage amount, and any keywords like lifelink or deathtouch influencing outcomes).",
+        "Whenever a replacement effect modifies an event, a log entry is created indicating which effect was applied and what change occurred (e.g., \"Damage to creature X replaced by prevent effect Y\").",
+        "GameState provides a method (e.g., to_dict or a snapshot function) to export the current state (players' life, cards in zones, etc.) which can be invoked at key points (end of turn, game end, or on demand) for analysis.",
+        "The logging output is structured (e.g., as a list of event dictionaries or a timeline) and does not alter game logic flow; it runs in parallel, ensuring no impact on game state aside from recording.",
+        "Logged data is accessible to AI agents or external observers through a defined interface (for example, an attribute on GameState or a global logger object), without exposing hidden information (only public game info is logged)."
+      ],
+      "risks": [
+        "Performance overhead if logging every event in detail; should be optimized or allow toggling for high-throughput simulations.",
+        "Risk of logging sensitive or too much information, potentially cluttering output or revealing hidden state (need to ensure only public game state is logged for fairness if AI uses it during games)."
+      ],
+      "tests": [
+        "Simulate a simple combat scenario and verify that log entries are created for each damage instance (e.g., attacker deals damage, blocker deals damage, lifelink life gain recorded) in the log structure.",
+        "Simulate a scenario with a replacement effect (e.g., a creature with \"if this would die, exile it instead\") and ensure that when the effect occurs, a log entry notes the replacement.",
+        "Call GameState.to_dict() in the middle of a game and at game end to confirm it returns a complete and correct snapshot of game state (with all zones and key values).",
+        "Ensure that disabling or enabling the logging (if implemented via a flag) works: when disabled, no logs are produced; when enabled, logs appear, confirming no game logic change between modes.",
+        "Run the full test suite to ensure that adding logging calls did not break any existing functionality or tests (logs should be passive)."
+      ],
+      "rollback": "Provide a configuration to turn off or remove the logging calls if they prove to be too intrusive or if they cause performance issues; in worst case, strip out the logging additions to restore previous state. All core game logic remains unchanged by removing logging.",
+      "notes": "Follows recommendations from Deep Review for better observability (adding trace logs for effects, damage, etc.). This change will greatly assist in AI model training and in verifying game engine behaviors during development."
     }
-    ]
+  ]
 }
-

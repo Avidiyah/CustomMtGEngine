@@ -80,7 +80,7 @@
     },
     {
       "change_id": "HB-20250809-004",
-      "status": "proposed",
+      "status": "approved",
       "owner": "John McClure",
       "summary": "Document/assert invariants in OracleRulesLayer and EffectParser",
       "intent": "Make key rules explicit and testable via comments and asserts.",
@@ -103,7 +103,7 @@
     },
     {
       "change_id": "HB-20250809-005",
-      "status": "proposed",
+      "status": "approved",
       "owner": "John McClure",
       "summary": "Implement missing combat abilities and damage step rules",
       "intent": "Complete the CombatEngine to fully enforce combat phase rules and keyword abilities (menace, first strike/double strike, lifelink, etc.), ensuring damage assignment occurs in proper sequence and all special combat conditions are handled. This change makes combat resolution rules-accurate and prepares hooks for triggers and state-based effects.",
@@ -138,7 +138,7 @@
     },
     {
       "change_id": "HB-20250809-006",
-      "status": "proposed",
+      "status": "approved",
       "owner": "John McClure",
       "summary": "Add comprehensive Card state tracking and helper methods",
       "intent": "Enhance the Card class to include all necessary in-game state fields (such as current zone, controller, tapped status, summoning sickness flag, damage marked, power/toughness for creatures) and convenience methods. This ensures that game rules (e.g., can attack/block, dies to damage) can be determined from a Card object itself, improving rule enforcement accuracy and easing AI evaluation of card status.",

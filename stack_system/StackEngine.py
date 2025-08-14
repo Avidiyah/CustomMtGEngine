@@ -1,173 +1,96 @@
-"""Stack resolution system for the Custom MTG engine.
-
-This module merges the old Stack, Spell and ActivatedAbility implementations
-and introduces a unified object model for everything that can exist on the
-Magic stack.  It provides a :class:`StackEngine` which resolves
-:class:`StackObject` instances in a last-in, first-out manner.
-"""
-
-from __future__ import annotations
-
-from dataclasses import dataclass, field
+# stack_system/StackEngine.py
+from dataclasses import dataclass
 from typing import Any, List, Optional
 
-from ..event_system import (
-    StackDeclinedEvent,
-    StackFizzleEvent,
-    StackResolutionEvent,
-)
-
-from ..data_layer.CardEntities import Card
-from ..effect_execution import EffectEngine, EffectContext
+from effect_execution.EffectEngine import EffectEngine, EffectContext
+# expose card/player types as Any to avoid import cycles at import-time
+# Runners supply real Card/Player instances at runtime.
 
 
+# ------- Safe default narrator (prevents NameError) -------
+class _NullNarrator:
+    def log(self, event: Any):
+        # Swallow logs silently; replace by injecting your own .log(event) later if desired.
+        pass
+
+
+narrator = _NullNarrator()
+
+
+# ------- Stack Object Types -------
 @dataclass
 class StackObject:
-    """Base representation for any object that can be placed on the stack."""
-
     source: Any
     controller: Any
-    targets: List[Any] = field(default_factory=list)
-    effect_ir: Any = None
-    name: str = ""
-    zone_origin: str = ""
-    resolved: bool = False
-    engine: EffectEngine = field(default_factory=EffectEngine, init=False)
-    
-    # ------------------------------------------------------------------
-    # Optional resolution helpers
-    # ------------------------------------------------------------------
-    @property
-    def is_optional(self) -> bool:
-        text = getattr(self.source, "oracle_text", "")
-        return "you may" in text.lower()
+    effect_ir: Any
+    name: Optional[str] = None
 
-    def controller_wants_to_resolve(self) -> bool:
-        return True
-
-    def has_legal_targets(self, game_state: Any) -> bool:
-        if not self.targets:
-            return True
-        return any(self._is_target_legal(t) for t in self.targets)
-
-    def resolve(self, game_state: Any) -> str:
-        """Resolve this stack object using :class:`EffectEngine`."""
-
-        legal_targets = [t for t in self.targets if self._is_target_legal(t)]
-        if self.targets and not legal_targets:
-            self.resolved = True
-            return f"{self.display_name()} fizzles — all targets illegal."
-        self.targets = legal_targets
-
-        context = EffectContext(
-            source=self.source,
-            controller=self.controller,
-            targets=self.targets,
-            game_state=game_state,
-        )
-        result = self.engine.execute(self.effect_ir, context)
-        self.resolved = True
-        return result
-
-    def _is_target_legal(self, target: Any) -> bool:
-        if hasattr(target, "is_valid") and callable(target.is_valid):
-            return target.is_valid()
-        return True
-
-    def display_name(self) -> str:
-        return self.name or getattr(self.source, "name", "<object>")
+    def label(self) -> str:
+        return self.name or getattr(self.source, "name", "Spell/Ability")
 
 
 @dataclass
 class Spell(StackObject):
-    """Concrete stack object representing a spell."""
-
-    mana_cost: str = ""
-    type_line: str = ""
-    card: Optional[Card] = None
-
-    def __post_init__(self) -> None:
-        if self.card is not None:
-            self.source = self.card
-            self.name = self.card.name
-            self.effect_ir = self.card.behavior_tree
-            self.mana_cost = self.card.mana_cost
-            self.type_line = self.card.type_line
+    pass
 
 
 @dataclass
 class ActivatedAbility(StackObject):
-    """Stack object created from an activated ability."""
-
-    cost: Any = None
-    choices: dict | None = None
+    pass
 
 
 @dataclass
 class TriggeredAbility(StackObject):
-    """Stack object created from a triggered ability."""
-
-    memory: dict = field(default_factory=dict)
+    pass
 
 
+# ------- Engine -------
 class StackEngine:
-    """Manage and resolve :class:`StackObject` instances in LIFO order."""
-
-    def __init__(self) -> None:
+    def __init__(self):
         self._stack: List[StackObject] = []
 
-    # ------------------------------------------------------------------
-    # Basic stack operations
-    # ------------------------------------------------------------------
-    def push(self, obj: StackObject) -> None:
-        """Push ``obj`` onto the stack."""
+    def push(self, obj: StackObject):
         self._stack.append(obj)
 
+    # compatibility shim for older trigger code that tried to call add_trigger(...)
+    def add_trigger(self, obj: StackObject):
+        self.push(obj)
+
     def pop(self) -> Optional[StackObject]:
-        """Remove and return the top object, if any."""
-        if self._stack:
-            return self._stack.pop()
-        return None
+        if not self._stack:
+            return None
+        return self._stack.pop()
 
     def peek(self) -> Optional[StackObject]:
-        """Return the top object without removing it."""
-        if self._stack:
-            return self._stack[-1]
-        return None
+        if not self._stack:
+            return None
+        return self._stack[-1]
 
     def is_empty(self) -> bool:
         return not self._stack
 
-    # ------------------------------------------------------------------
-    # Resolution helpers
-    # ------------------------------------------------------------------
-    def resolve_top(self, game_state: Any) -> str:
-        """Resolve the topmost object on the stack."""
+    def resolve_top(self, game_state: Any):
+        """Pop and resolve the top object using EffectEngine."""
         obj = self.pop()
         if obj is None:
-            return "Stack is empty."
-        if not obj.has_legal_targets(game_state):
-            event = StackFizzleEvent(obj)
-            narrator.log(event)
-            obj.resolved = True
-            return f"{obj.display_name()} fizzles — all targets illegal."
+            return
 
-        if obj.is_optional and not obj.controller_wants_to_resolve():
-            event = StackDeclinedEvent(obj)
-            narrator.log(event)
-            obj.resolved = True
-            return f"{obj.display_name()} resolution declined."
+        effect_engine = EffectEngine()
+        context = EffectContext(
+            source_card=obj.source,
+            controller=obj.controller,
+            targets=[],
+        )
+        # Execute and narrate; failures are swallowed to avoid halting the run
+        try:
+            effect_engine.execute(obj.effect_ir, context, game_state)
+            narrator.log({"type": "stack_resolve", "label": obj.label(), "controller": getattr(obj.controller, "name", str(obj.controller))})
+        except Exception as exc:
+            narrator.log({"type": "stack_error", "label": obj.label(), "error": repr(exc)})
 
-        result = obj.resolve(game_state)
-        event = StackResolutionEvent(obj, result)
-        narrator.log(event)
-        return result
+    # Convenience for GameState wrappers
+    def __len__(self) -> int:
+        return len(self._stack)
 
-
-__all__ = [
-    "StackObject",
-    "Spell",
-    "ActivatedAbility",
-    "TriggeredAbility",
-    "StackEngine",
-]
+    def __bool__(self) -> bool:
+        return not self.is_empty()

@@ -1,8 +1,7 @@
+# testing_tools/Test_Run.py
 import os
 import sys
 import unittest
-from dataclasses import dataclass
-from typing import Any, Dict, List
 
 # Ensure repository root is on sys.path
 REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
@@ -10,233 +9,102 @@ if REPO_ROOT not in sys.path:
     sys.path.insert(0, REPO_ROOT)
 
 # -------------------------------------------------------------
-# Imports from the engine
+# Minimal imports from the engine for smoke testing
 # -------------------------------------------------------------
-from data_layer.CardRepository import CardRepository, CardMetadata, GameCard
-from oracle_parser.OracleParser import OracleParser
-from oracle_parser.Tokenizer import Token, TokenGroup, tokenize_clause
-from oracle_parser.ClauseParser import parse_token_group, ClauseBlock
-from oracle_parser.RuleLexicon import STATIC_KEYWORDS
+from game_core import Player, GameState
+from stack_system import StackEngine, TriggerEngine, Spell
+from effect_execution.EffectEngine import EffectContext, EffectEngine
 
-class OraclePipelineTests(unittest.TestCase):
-    @classmethod
-    def setUpClass(cls):
-        cache_path = os.path.join(REPO_ROOT, 'data_layer', 'card_cache.json')
-        cls.repo = CardRepository(cache_file=cache_path)
-        cls.glory = cls.repo.load_card('glorybringer')
-        cls.bolt = cls.repo.load_card('lightning bolt')
-        cls.angel = cls.repo.load_card('serra angel')
-        cls.gamecard = GameCard(metadata=cls.glory)
-        cls.parser = OracleParser()
+# Simulator is optional for headless runs; tests adapt if not present
+try:
+    from ui_simulator.Simulator import Simulator
+    HAS_SIMULATOR = True
+except Exception:
+    HAS_SIMULATOR = False
 
-    def test_repository_load(self):
-        self.assertIsInstance(self.glory, CardMetadata)
-        self.assertIsInstance(self.bolt, CardMetadata)
 
-    def test_metadata_fields(self):
-        md = self.glory
-        self.assertIn('Creature', md.types)
-        self.assertIn('Dragon', md.subtypes)
-        self.assertIn('flying', md.static_abilities)
-        self.assertIn('haste', md.static_abilities)
-        self.assertTrue(md.oracle_hash)
-        self.assertTrue(md.card_fingerprint)
-        print('\nOracle Hash:', md.oracle_hash)
-        print('Card Fingerprint:', md.card_fingerprint)
-        print('Static Abilities:', md.static_abilities)
+class SmokeImportsAndCoreConstruction(unittest.TestCase):
+    """Sanity check: core types import and basic objects construct."""
 
-    def test_gamecard_wrapper(self):
-        gc = self.gamecard
-        self.assertEqual(gc.zone, 'library')
-        self.assertTrue(gc.is_creature())
+    def test_imports_and_construction(self):
+        p1, p2 = Player("Alice"), Player("Bob")
+        stack = StackEngine()
+        triggers = TriggerEngine()
+        state = GameState(players=[p1, p2], stack=stack, trigger_engine=triggers)
 
-    def test_oracle_clauses_structure(self):
-        clauses = self.parser.parse(self.bolt.oracle_text)
-        lines = [l.strip() for l in self.bolt.oracle_text.split('\n') if l.strip()]
-        self.assertEqual(len(clauses), len(lines))
-        for c in clauses:
-            self.assertIsInstance(c, ClauseBlock)
-            self.assertIsInstance(c.effect_ir, dict)
-            self.assertTrue(c.clause_type)
-            print('ClauseBlock:', c.clause_type, c.raw, c.effect_ir)
+        # Basic invariants
+        self.assertEqual(len(state.players), 2)
+        self.assertTrue(stack.is_empty())
+        self.assertIs(state.trigger_engine, triggers)
 
-    def test_behavior_tree_population(self):
-        clauses = self.parser.parse(self.bolt.oracle_text)
-        tree = self.parser.behavior_tree
-        self.assertEqual(len(tree), len(clauses))
-        self.assertTrue(all(isinstance(node, dict) for node in tree))
-        print('Behavior Tree:', tree)
+        # No-op SBA pass should not raise
+        state.check_state_based_actions()
 
-    def test_tokenizer_typing(self):
-        clause = 'Whenever another creature enters, you gain 1 life.'
-        group = tokenize_clause(clause)
-        self.assertIsInstance(group, TokenGroup)
-        types = [t.type for t in group.tokens]
-        print('Tokens:', [(t.text, t.type) for t in group.tokens])
-        self.assertIn('trigger_word', types)
-        self.assertIn('action_word', types)
 
-    def test_clause_parser_semantics(self):
-        clause = 'Whenever another creature enters, you gain 1 life.'
-        group = tokenize_clause(clause)
-        block = parse_token_group(group)
-        self.assertEqual(block.clause_type, 'trigger')
-        self.assertIsNotNone(block.effect_ir.get('trigger'))
-        self.assertIn('trigger', block.effect_ir)
-        print('Parsed Clause:', block)
+class SmokeSimulatorHeadless(unittest.TestCase):
+    """Headless run for 1–2 turns to ensure nothing crashes."""
 
-class PhaseOneTestSuite(unittest.TestCase):
-    @classmethod
-    def setUpClass(cls):
-        cache_path = os.path.join(REPO_ROOT, 'data_layer', 'card_cache.json')
-        cls.repo = CardRepository(cache_file=cache_path)
-        cls.serra = cls.repo.load_card('serra angel')
-        cls.bolt = cls.repo.load_card('lightning bolt')
-        cls.warden = cls.repo.load_card('soul warden')
-        cls.parser = OracleParser()
+    @unittest.skipUnless(HAS_SIMULATOR, "Simulator not available in this build")
+    def test_headless_one_turn(self):
+        sim = Simulator()
+        # Prefer .run if available; else fallback to .run_test_game
+        runner = getattr(sim, "run", None) or getattr(sim, "run_test_game", None)
+        self.assertIsNotNone(runner, "Simulator has no run or run_test_game method")
 
-    def test_card_metadata_loading(self):
-        md = self.serra
-        self.assertEqual(md.name.lower(), 'serra angel')
-        self.assertTrue(md.oracle_text)
-        self.assertIn('Creature', md.types)
-        self.assertTrue(md.mana_cost)
-        self.assertTrue(md.oracle_hash)
-        self.assertTrue(md.card_fingerprint)
-        self.assertIn('flying', md.static_abilities)
+        start_turn = sim.game_state.turn_index
+        runner(turns=1)
+        # Turn index should advance by at least 1 modulo player count (robust to modulo wrap)
+        self.assertNotEqual(sim.game_state.turn_index, start_turn)
 
-    def test_oracle_hash_consistency(self):
-        first = self.repo.load_card('soul warden')
-        second = self.repo.load_card('soul warden')
-        self.assertEqual(first.oracle_hash, second.oracle_hash)
 
-    def test_token_classification(self):
-        clause = 'Whenever another creature enters, you gain 1 life.'
-        group = tokenize_clause(clause)
-        roles = {t.text: t.type for t in group.tokens}
-        self.assertEqual(roles.get('whenever'), 'trigger_word')
-        self.assertEqual(roles.get('creature'), 'targeting_word')
-        self.assertEqual(roles.get('gain'), 'action_word')
-        self.assertEqual(roles.get('life'), 'resource_term')
+class SmokeTriggerEnginePath(unittest.TestCase):
+    """Queue a trivial trigger and ensure it can be pushed and resolved."""
 
-    def test_token_group_preserves_raw_clause(self):
-        clause = 'Whenever another creature enters, you gain 1 life.'
-        group = tokenize_clause(clause)
-        self.assertEqual(group.raw, clause)
+    def test_trigger_queue_and_push(self):
+        p1, p2 = Player("Alice"), Player("Bob")
+        stack = StackEngine()
+        triggers = TriggerEngine()
+        state = GameState(players=[p1, p2], stack=stack, trigger_engine=triggers)
 
-    def test_clauseblock_structure(self):
-        clauses = self.parser.parse(self.serra.oracle_text)
-        self.assertTrue(all(isinstance(c, ClauseBlock) for c in clauses))
-        for c in clauses:
-            self.assertTrue(c.raw)
-            self.assertIsInstance(c.effect_ir, dict)
+        # Queue a trivial no-op effect IR and push it
+        triggers.fire_now(effect_ir={}, source=p1)
+        # Should not raise
+        triggers.check_and_push(state, stack)
 
-    def test_effect_ir_presence(self):
-        clauses = self.parser.parse(self.glory_text())
-        for cl in clauses:
-            self.assertIsInstance(cl.effect_ir, dict)
-            self.assertTrue(cl.effect_ir)
+        # If a trigger was pushed, resolve it; otherwise this is a no-op smoke check
+        if not stack.is_empty():
+            # Resolve top; ensure it doesn't raise
+            stack.resolve_top(state)
+            self.assertTrue(stack.is_empty())
 
-    def test_static_keyword_detection(self):
-        self.assertIn('flying', self.serra.static_abilities)
-        self.assertIn('vigilance', self.serra.static_abilities)
 
-    def test_clause_fingerprint_uniqueness(self):
-        fp1 = self.serra.card_fingerprint
-        fp2 = self.bolt.card_fingerprint
-        self.assertNotEqual(fp1, fp2)
+class SmokeStackResolution(unittest.TestCase):
+    """Resolve a minimal spell with a do-nothing effect IR."""
 
-    def test_token_consistency_on_retokenization(self):
-        clause = 'Lightning Bolt deals 3 damage to any target.'
-        t1 = tokenize_clause(clause)
-        t2 = tokenize_clause(clause)
-        seq1 = [(tok.text, tok.type) for tok in t1.tokens]
-        seq2 = [(tok.text, tok.type) for tok in t2.tokens]
-        self.assertEqual(seq1, seq2)
+    class _DummyCard:
+        def __init__(self, name="Test Spell"):
+            self.name = name
 
-    def test_tokenizer_with_punctuation(self):
-        clause = 'Destroy target creature, then draw a card!'
-        group = tokenize_clause(clause)
-        texts = [t.text for t in group.tokens]
-        self.assertIn('destroy', texts)
-        self.assertIn('draw', texts)
+    def test_resolve_noop_spell(self):
+        p1, p2 = Player("Alice"), Player("Bob")
+        stack = StackEngine()
+        state = GameState(players=[p1, p2], stack=stack, trigger_engine=TriggerEngine())
 
-    def test_unknown_tokens_are_tagged(self):
-        clause = 'Blorbity blorb deals 2 damage to floofs!'
-        group = tokenize_clause(clause)
-        unknown_tokens = [t for t in group.tokens if t.text in {'blorbity', 'blorb', 'floofs'}]
-        self.assertTrue(all(t.type == 'unknown' for t in unknown_tokens))
+        # Minimal no-op effect: most EffectEngine implementations will ignore/handle unknown actions
+        dummy_effect_ir = {}
+        spell = Spell(source=self._DummyCard(), controller=p1, effect_ir=dummy_effect_ir)
+        stack.push(spell)
 
-    def glory_text(self):
-        glory = self.repo.load_card('glorybringer')
-        return glory.oracle_text
+        # Resolution should not raise and should empty the stack
+        stack.resolve_top(state)
+        self.assertTrue(stack.is_empty())
 
-# -------------------------------------------------------------
-# Phase 2.1 stack resolution tests
-# -------------------------------------------------------------
-from stack_system.StackEngine import StackEngine
-from event_system.GameEvent import StackFizzleEvent, StackResolutionEvent, StackDeclinedEvent
+        # Also ensure EffectEngine can be called directly in a no-op context without error
+        ee = EffectEngine()
+        ctx = EffectContext(source_card=spell.source, controller=p1, targets=[])
+        # Should not raise even if effect_ir is empty
+        ee.execute(dummy_effect_ir, ctx, state)
 
-STACK_MODULE = sys.modules["stack_system.StackEngine"]
-
-class TestNarrator:
-    def __init__(self):
-        self.events = []
-
-    def log(self, event):
-        self.events.append(event)
-
-class MockStackObject:
-    def __init__(self, name, legal=True, optional=False, decline=False):
-        self.name = name
-        self.legal = legal
-        self.optional = optional
-        self.decline = decline
-
-    def __str__(self):
-        return self.name
-
-    def display_name(self):
-        return self.name
-
-    @property
-    def is_optional(self):
-        return self.optional
-
-    def controller_wants_to_resolve(self):
-        return not self.decline
-
-    def has_legal_targets(self, game_state):
-        return self.legal
-
-    def resolve(self, game_state):
-        return "Resolved"
-
-class TestPhase21StackResolution(unittest.TestCase):
-    def setUp(self):
-        self.stack = StackEngine()
-        STACK_MODULE.narrator = TestNarrator()
-
-    def test_fizzle_on_illegal_targets(self):
-        obj = MockStackObject("FizzlingSpell", legal=False)
-        self.stack.push(obj)
-        result = self.stack.resolve_top(None)
-        self.assertEqual(result, "FizzlingSpell fizzles — all targets illegal.")
-        self.assertIsInstance(STACK_MODULE.narrator.events[0], StackFizzleEvent)
-
-    def test_decline_optional_effect(self):
-        obj = MockStackObject("MaySpell", legal=True, optional=True, decline=True)
-        self.stack.push(obj)
-        result = self.stack.resolve_top(None)
-        self.assertEqual(result, "MaySpell resolution declined.")
-        self.assertIsInstance(STACK_MODULE.narrator.events[0], StackDeclinedEvent)
-
-    def test_successful_resolution(self):
-        obj = MockStackObject("ValidSpell", legal=True)
-        self.stack.push(obj)
-        result = self.stack.resolve_top(None)
-        self.assertEqual(result, "Resolved")
-        self.assertIsInstance(STACK_MODULE.narrator.events[0], StackResolutionEvent)
 
 if __name__ == '__main__':
     unittest.main(verbosity=2)

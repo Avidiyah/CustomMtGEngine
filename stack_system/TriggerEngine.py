@@ -1,29 +1,36 @@
-# === TriggerEngine ===
+# stack_system/TriggerEngine.py
+from typing import Any, Callable, List, Tuple
+from stack_system.StackEngine import TriggeredAbility
+
+
 class TriggerEngine:
+    """
+    Minimal trigger registry. For stability, we do not attempt full CR 603 integration here.
+    - register(condition_fn, effect_ir_fn, source): store a trigger
+    - fire_now(effect_ir, source): immediate push helper (used by simple ETB demos)
+    - check_and_push(game_state, stack): push any pending triggers (no detection loop implemented)
+    """
     def __init__(self):
-        self.registered_cards = []
-        self.pending_triggers = []
+        # Each entry: (condition_fn, effect_ir_fn, source)
+        self.registered: List[Tuple[Callable[[Any], bool], Callable[[], Any], Any]] = []
+        # Pending entries: (effect_ir, source)
+        self.pending: List[Tuple[Any, Any]] = []
 
-    def register_trigger_reference(self, trigger_info, triggering_object, game_state):
+    def register(self, condition_fn: Callable[[Any], bool], effect_ir_fn: Callable[[], Any], source: Any):
+        self.registered.append((condition_fn, effect_ir_fn, source))
+
+    def fire_now(self, effect_ir: Any, source: Any):
+        """Simple helper to queue a trigger for immediate stack push on next check."""
+        self.pending.append((effect_ir, source))
+
+    def check_and_push(self, game_state: Any, stack: Any):
         """
-        Registers a dynamic reference when a trigger fires based on event context.
-        Example: If a creature dies and the trigger says 'return that creature', store the creature.
+        Consume any pending triggers and push them to the stack as TriggeredAbility.
+        (We do NOT do event detection here; just provide a safe path for modules that queue triggers.)
         """
-        if 'expected_reference' in trigger_info:
-            tag = trigger_info['expected_reference']
-            if hasattr(game_state.get('manager'), 'memory_tracker'):
-                game_state['manager'].memory_tracker.tag_reference(tag, triggering_object)
-                print(f"[TriggerEngine] Registered dynamic reference: {tag} -> {triggering_object}")
-
-    def register_card(self, card):
-        pass  # Placeholder (real registration logic occurs elsewhere)
-
-    def register(self, condition_fn, effect_fn, source=""):
-        self.registered_cards.append((condition_fn, effect_fn, source))
-
-    def check_and_push(self, game_state, stack):
-        """Phase-based automatic trigger resolution attempt."""
-        if self.pending_triggers:
-            for card, effect in self.pending_triggers:
-                stack.add_trigger(card, effect)
-            self.pending_triggers.clear()
+        if not self.pending:
+            return
+        while self.pending:
+            effect_ir, source = self.pending.pop(0)
+            controller = getattr(source, "controller", None)
+            stack.add_trigger(TriggeredAbility(source=source, controller=controller, effect_ir=effect_ir))

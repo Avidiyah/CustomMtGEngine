@@ -1,87 +1,77 @@
-"""Game simulation backend utilities.
-
-This module provides a :class:`Simulator` that can be used by manual
-or automated tests to drive the engine without requiring UI prompts.
-The class offers helper methods for setting up a game state, loading
-decks and iterating through phases.  No gameplay logic is implemented
-here; it simply orchestrates calls to the existing engine modules.
-"""
-
-from __future__ import annotations
-
-from typing import List, Sequence
-
-from data_layer.CardEntities import Card, CardDataManager
-from game_core import GameState, Player
+# ui_simulator/Simulator.py
+from typing import List, Optional
+from game_core import Player, GameState
 from stack_system import StackEngine, TriggerEngine
-from CombatEngine import CombatEngine
-from effect_execution import EffectEngine
-from oracle_parser import OracleParser
-class Simulator:
-    """Backend driver for headless or scripted simulations."""
+from data_layer.CardEntities import Card, CardDataManager
+from effect_execution.EffectEngine import EffectEngine
+from combat_engine.CombatEngine import CombatEngine  # adjust path if your repo uses root-level CombatEngine.py
 
-    def __init__(self, player_names: Sequence[str]) -> None:
-        """Create a new ``GameState`` with players named in ``player_names``."""
-        self.players: List[Player] = [Player(name) for name in player_names]
+
+class Simulator:
+    """
+    Lightweight headless driver for quick sanity tests.
+    Wires a full, minimal game environment and provides run(turns).
+    """
+    def __init__(self, players: Optional[List[Player]] = None):
+        self.players: List[Player] = players or [Player("Alice"), Player("Bob")]
         self.stack = StackEngine()
         self.triggers = TriggerEngine()
-        self.state = GameState(self.players, stack=self.stack, trigger_engine=self.triggers)
+        self.game_state = GameState(players=self.players, stack=self.stack, trigger_engine=self.triggers)
         self.combat = CombatEngine()
         self.effect_engine = EffectEngine()
-        self.parser = OracleParser()
+        self.card_cache = CardDataManager()
 
-    # ------------------------------------------------------------------
-    # Deck/zone management
-    # ------------------------------------------------------------------
-    def load_deck(self, player_index: int, deck_list: Sequence[str]) -> None:
-        """Populate ``player_index``'s library with cards from ``deck_list``."""
-        manager = CardDataManager()
+    def load_deck(self, player_index: int, deck_list: List[str]):
+        """Very basic library loader using CardEntities.Card + CardDataManager."""
         player = self.players[player_index]
         player.library.clear()
         for name in deck_list:
-            data = manager.get_card_data(name) or {}
-            card = Card(name)
-            card.oracle_text = data.get("oracle_text", "")
-            card.type_line = data.get("type_line", "")
-            card.mana_cost = data.get("mana_cost", "")
-            player.library.append(card)
+            data = self.card_cache.get_card_data(name)
+            player.library.append(Card(name=data.get("name", name), types=data.get("types", []),
+                                       power=data.get("power", 0), toughness=data.get("toughness", 0)))
+        # Simple shuffle omitted for determinism in smoke runs.
 
-    # ------------------------------------------------------------------
-    # Simulation helpers
-    # ------------------------------------------------------------------
-    def simulate_phase(self, phase: str) -> List[str]:
-        """Execute a single phase step and return log messages."""
-        logs: List[str] = []
-        self.state.phase_index = self.state.phases.index(phase)
-        active = self.state.current_player()
+    def simulate_phase(self, phase: str):
+        """
+        Minimal, side-effectful phase step to sanity-check state transitions.
+        Not exhaustive; just enough to keep headless runs consistent.
+        """
+        # Sync phase on GameState
+        if phase in self.game_state.phases:
+            self.game_state.phase_index = self.game_state.phases.index(phase)
+
+        # Very small sample of automatic phase behaviors:
+        active = self.players[self.game_state.turn_index]
 
         if phase == "Untap":
-            active.untap_all()
+            for card in active.battlefield:
+                if getattr(card, "tapped", False):
+                    card.tapped = False
+
         elif phase == "Draw":
             active.draw(1)
 
-        if phase == "Declare Attackers":
-            if hasattr(self.state, "combat"):
-                self.state.combat.clear()
-            logs.extend(self.combat.declare_attackers(self.state, active, []))
+        elif phase == "Combat":
+            # No attackers by default; ensure combat structures reset if your CombatEngine uses game_state hooks.
+            pass
 
-        # Resolve triggers and stack if needed
-        self.triggers.check_and_push(self.state, self.stack)
+        # Resolve one stack object (if any), then SBA + triggers:
         if not self.stack.is_empty():
-            logs.append(self.stack.resolve_top(self.state))
+            self.game_state.resolve_stack()
+        self.game_state.check_state_based_actions()
+        if self.triggers:
+            self.triggers.check_and_push(self.game_state, self.stack)
 
-        logs.extend(self.state.check_state_based_actions())
-        return logs
-
-    def run_test_game(self, turns: int = 1) -> List[str]:
-        """Run a very small scripted game for ``turns`` turns."""
-        log: List[str] = []
+    def run_test_game(self, turns: int = 3):
         for _ in range(turns):
-            for phase in self.state.phases:
-                log.extend(self.simulate_phase(phase))
-            self.state.next_turn()
-        return log
+            # very simple turn structure
+            for phase in ("Untap", "Upkeep", "Draw", "Main1", "Combat", "Main2", "End", "Cleanup"):
+                self.simulate_phase(phase)
+            # Next turn
+            self.game_state.next_turn()
 
-    @staticmethod
-    def event_matches_trigger(trigger_text, event_text):
-        return event_text in trigger_text or trigger_text in event_text
+    # NEW: .run() so MainRunner can just call it.
+    def run(self, turns: int = 3):
+        print(f"[Simulator] Running {turns} turn(s) headlessly.")
+        self.run_test_game(turns=turns)
+        print("[Simulator] Done.")

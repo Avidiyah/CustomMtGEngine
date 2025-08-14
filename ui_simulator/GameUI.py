@@ -1,104 +1,90 @@
-# GameUI.py — Updated for Dummy Input System and Manual Mode
+# ui_simulator/GameUI.py
+from typing import Optional
+from game_core import GameManager, GameState, Player
 from stack_system import Spell
 
+
 class GameUI:
-    def __init__(self, game_manager, game_state, dummy_mode=False):
-        self.game_manager = game_manager
+    """
+    Minimal text UI that operates independently of GameManager.run().
+    It uses the provided GameManager and GameState, but the loop here
+    drives simple actions to avoid getting stuck in priority loops.
+    """
+    def __init__(self, manager: GameManager, game_state: GameState):
+        self.manager = manager
         self.game_state = game_state
-        self.dummy_mode = dummy_mode
-        self.targeting_system = game_state.get("targeting_system", None)
+
+    def _show_hand(self, player: Player):
+        print(f"\n{player.name}'s hand:")
+        for i, card in enumerate(player.hand):
+            print(f"  [{i}] {getattr(card, 'name', 'Unknown')}")
+        if not player.hand:
+            print("  (empty)")
+
+    def _cast_from_hand_by_index(self, player: Player, idx: int):
+        if idx < 0 or idx >= len(player.hand):
+            print("Invalid card index.")
+            return
+        card = player.hand[idx]
+        # In a richer engine, costs must be paid; here we push directly for manual smoke tests
+        spell = Spell(source=card, controller=player, effect_ir=getattr(card, "behavior_tree", None))
+        self.game_state.stack.push(spell)
+        print(f"{player.name} casts {getattr(card, 'name', 'a spell')}.")
+
+        # Resolve immediately for interactive smoothness:
+        self.game_state.resolve_stack()
+        self.game_state.check_state_based_actions()
 
     def run(self):
+        print("Manual UI started. Commands: pass | cast <index> | help | quit")
         while True:
-            current_player = self.game_manager.priority_manager.current_player()
-            phase = self.game_manager.phase_manager.current_phase()
+            active = self.manager.players[self.manager.turn_player_index]
+            phase = self.game_state.current_phase()
+            print(f"\n=== {active.name}'s {phase} ===")
 
-            if self.dummy_mode:
-                self.auto_action(current_player)
-                continue
+            # Show quick status
+            for p in self.manager.players:
+                print(f"{p.name}: {p.life} life, Hand={len(p.hand)}, BF={len(p.battlefield)}")
 
-            print(f"== {phase} ==")
-            print(f"--- {current_player.name}'s Turn ---")
-            print(f"Hand: {[card.name for card in current_player.hand]}")
-
+            # Simple auto-behaviors for common phases
             if phase == "Untap":
-                for player in self.game_state["players"]:
-                    player.reset_mana_pool()
-                current_player.untap_all()
+                active.untap_all()
+            elif phase == "Draw":
+                active.draw(1)
 
-            self.game_state["trigger_engine"].check_and_push(self.game_state, self.game_state["stack"])
+            # Only prompt during main phases for simplicity
+            if phase in ("Main1", "Main2"):
+                self._show_hand(active)
+                cmd = input("> ").strip()
 
-            command = input("Enter an action: [play <card>] [activate <card>] [tap <land>] [pass]\nAction > ").strip().lower()
-
-            if command == "pass":
-                if self.game_manager.priority_manager.pass_priority():
-                    self.game_manager.state_based_actions.check_and_apply(self.game_state)
-                    self.game_manager.phase_manager.next_phase()
-                    self.game_manager.priority_manager.reset()
-                    if self.game_manager.phase_manager.current_phase() == "Cleanup":
-                        self.game_manager.end_turn()
-                        self.game_manager.start_next_turn()
-                continue
-
-            if command.startswith("play "):
-                name = command[5:].strip().capitalize()
-                for card in current_player.hand:
-                    if card.name.lower() == name.lower():
-                        if "land" in card.type_line.lower():
-                            print(current_player.play_land(card, self.game_state))
-                        else:
-                            if not current_player.can_pay_cost(card.mana_cost):
-                                print("Not enough mana.")
-                                break
-                            current_player.pay_cost(card.mana_cost)
-                            spell = Spell(card=card, controller=current_player)
-                            self.game_state["stack"].push(spell)
-                            current_player.hand.remove(card)
-                        break
+                if cmd == "quit":
+                    print("Exiting manual UI.")
+                    break
+                if cmd == "help":
+                    print("Commands:\n  pass\n  cast <index>\n  quit")
+                    continue
+                if cmd.startswith("cast "):
+                    try:
+                        idx = int(cmd.split()[1])
+                        self._cast_from_hand_by_index(active, idx)
+                    except Exception:
+                        print("Usage: cast <index>")
+                        continue
+                elif cmd == "pass":
+                    pass
                 else:
-                    print("Card not found in hand.")
+                    print("Unknown command. Type 'help'.")
 
-            elif command.startswith("tap "):
-                name = command[4:].strip().capitalize()
-                for perm in current_player.battlefield:
-                    if perm.name.lower() == name.lower():
-                        if not perm.tapped:
-                            perm.tapped = True
-                            current_player.add_mana("U")
-                            print(f"{perm.name} tapped for U mana.")
-                        else:
-                            print(f"{perm.name} is already tapped.")
-                        break
-                else:
-                    print("Card not found on battlefield.")
+            # End-of-phase housekeeping
+            if not self.game_state.stack.is_empty():
+                self.game_state.resolve_stack()
+            if self.manager.trigger_engine:
+                self.manager.trigger_engine.check_and_push(self.game_state, self.manager.stack)
+            self.game_state.check_state_based_actions()
 
-            if phase == "Precombat Main" and not self.game_state["stack"].is_empty():
-                print("Resolving stack...")
-                print(self.game_state["stack"].resolve_top(self.game_state))
-
-    def auto_action(self, current_player):
-        if self.try_tap_land(current_player):
-            return
-        if self.try_cast_spell(current_player):
-            return
-        self.game_manager.priority_manager.pass_priority()
-
-    def try_tap_land(self, current_player):
-        for perm in current_player.battlefield:
-            if "Land" in perm.type_line and not perm.tapped:
-                perm.tapped = True
-                current_player.add_mana("U")
-                print(f"[AUTO] {perm.name} tapped for U.")
-                return True
-        return False
-
-    def try_cast_spell(self, current_player):
-        for card in current_player.hand:
-            if "land" not in card.type_line.lower() and current_player.can_pay_cost(card.mana_cost):
-                current_player.pay_cost(card.mana_cost)
-                spell = Spell(card=card, controller=current_player)
-                self.game_state["stack"].push(spell)
-                current_player.hand.remove(card)
-                print(f"[AUTO] Cast {card.name}.")
-                return True
-        return False
+            # Advance phase; roll turn on Cleanup
+            self.manager.phase_manager.next_phase(self.game_state)
+            if phase == "Cleanup":
+                # Next player's turn
+                self.manager.turn_player_index = (self.manager.turn_player_index + 1) % len(self.manager.players)
+                self.game_state.next_turn()

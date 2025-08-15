@@ -1,5 +1,5 @@
 from game_core.ManaPool import ManaPool
-from stack_system import Spell
+from stack_system.StackEngine import Spell
 
 class Player:
     def __init__(self, name):
@@ -100,7 +100,7 @@ class Player:
         for card in self.hand:
             if "land" not in card.type_line.lower() and self.can_pay_cost(card.mana_cost):
                 self.pay_cost(card.mana_cost)
-                spell = Spell(card=card, controller=self)
+                spell = Spell(source=card, controller=self, effect_ir=getattr(card, "behavior_tree", {}))
                 game_state.stack.push(spell)
                 self.hand.remove(card)
                 print(f"{self.name} casts {card.name}.")

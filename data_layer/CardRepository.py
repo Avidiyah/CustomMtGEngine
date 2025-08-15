@@ -9,7 +9,7 @@ handles cache lookup and Oracle parsing.
 """
 
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Iterable
 import hashlib
 import json
 
@@ -18,14 +18,24 @@ try:
 except Exception:  # pragma: no cover - optional dependency
     requests = None
 
-from oracle_parser.OracleParser import OracleParser
-from oracle_parser.RuleLexicon import STATIC_KEYWORDS
+# --- RUNTIME SAFETY: Make parser/lexicon imports non-fatal -----------------
+try:
+    from oracle_parser.OracleParser import OracleParser  # type: ignore
+except Exception:
+    class OracleParser:  # minimal stub to keep runtime safe
+        def parse(self, _text: str) -> List[Any]:
+            return []
+
+try:
+    from oracle_parser.RuleLexicon import STATIC_KEYWORDS  # type: ignore
+except Exception:
+    STATIC_KEYWORDS: List[str] = []
+# --------------------------------------------------------------------------
 
 
 @dataclass
 class ClauseBlock:
     """Minimal representation of a parsed Oracle clause."""
-
     raw: str
     effect_ir: Any
     trigger: Optional[Dict[str, Any]] = None
@@ -35,7 +45,6 @@ class ClauseBlock:
 @dataclass
 class CardMetadata:
     """Static card metadata parsed from Scryfall's Oracle information."""
-
     name: str
     oracle_text: str = ""
     type_line: str = ""
@@ -55,11 +64,25 @@ class CardMetadata:
         parser = OracleParser()
         parsed = parser.parse(self.oracle_text)
 
-        if parsed and isinstance(parsed[0], ClauseBlock):
-            self.oracle_clauses = parsed
-            self.behavior_tree = [cl.effect_ir for cl in parsed]
+        # Normalize parsed into a list safely
+        if parsed is None:
+            parsed_list: List[Any] = []
+        elif isinstance(parsed, list):
+            parsed_list = parsed
+        elif isinstance(parsed, Iterable):
+            try:
+                parsed_list = list(parsed)
+            except Exception:
+                parsed_list = []
+        else:
+            parsed_list = []
+
+        if parsed_list and isinstance(parsed_list[0], ClauseBlock):
+            self.oracle_clauses = parsed_list  # type: ignore[assignment]
+            self.behavior_tree = [cl.effect_ir for cl in parsed_list]  # type: ignore[attr-defined]
         else:
             lines = [l.strip() for l in self.oracle_text.split("\n") if l.strip()]
+            # Zip safely with whatever we got from parser (may be empty)
             self.oracle_clauses = [
                 ClauseBlock(
                     raw=line,
@@ -67,13 +90,12 @@ class CardMetadata:
                     trigger=getattr(ir, "trigger", None),
                     condition=getattr(ir, "condition", None),
                 )
-                for line, ir in zip(lines, parsed)
+                for line, ir in zip(lines, parsed_list)
             ]
-
-            self.behavior_tree = [getattr(ir, "action", {}) for ir in parsed]
+            self.behavior_tree = [getattr(ir, "action", {}) for ir in parsed_list]
 
         text_lower = self.oracle_text.lower()
-        self.static_abilities = [kw for kw in STATIC_KEYWORDS if kw in text_lower]
+        self.static_abilities = [kw for kw in STATIC_KEYWORDS if kw and kw in text_lower]
 
         self.oracle_hash = hashlib.sha1(self.oracle_text.encode()).hexdigest()
         fingerprint_str = f"{self.name}|{self.mana_cost}|{self.type_line}"
@@ -95,13 +117,7 @@ class CardMetadata:
         supertypes: List[str] = []
         types: List[str] = []
         for w in words:
-            if w in [
-                "Basic",
-                "Legendary",
-                "Snow",
-                "World",
-                "Ongoing",
-            ]:
+            if w in ["Basic", "Legendary", "Snow", "World", "Ongoing"]:
                 supertypes.append(w)
             else:
                 types.append(w)
@@ -113,7 +129,6 @@ class CardMetadata:
 @dataclass
 class GameCard:
     """In-game representation of a card instance."""
-
     metadata: CardMetadata
     owner: Any | None = None
     controller: Any | None = None
@@ -142,18 +157,18 @@ class CardRepository:
     # ------------------------------------------------------------------
     def _load_cache(self) -> Dict[str, Dict[str, Any]]:
         try:
-            with open(self.cache_file, "r") as f:
+            with open(self.cache_file, "r", encoding="utf-8") as f:
                 return json.load(f)
         except (FileNotFoundError, json.JSONDecodeError):
             return {}
 
     def _save_cache(self) -> None:
-        with open(self.cache_file, "w") as f:
-            json.dump(self.cache, f, indent=2)
+        with open(self.cache_file, "w", encoding="utf-8") as f:
+            json.dump(self.cache, f, indent=2, ensure_ascii=False)
 
     def import_cache(self, path: str) -> None:
         try:
-            with open(path, "r") as f:
+            with open(path, "r", encoding="utf-8") as f:
                 data = json.load(f)
             self.cache.update(data)
             self._save_cache()
@@ -179,7 +194,10 @@ class CardRepository:
         data = self.get_card_data(name)
         if not data:
             return None
-        return CardMetadata(name=name, **data)
+        # Filter to only the fields CardMetadata accepts to avoid TypeError
+        allowed = {"oracle_text", "type_line", "mana_cost"}
+        filtered = {k: v for k, v in data.items() if k in allowed}
+        return CardMetadata(name=name, **filtered)
 
     # ------------------------------------------------------------------
     # Scryfall access (optional)
@@ -189,17 +207,18 @@ class CardRepository:
         if requests is None:
             return None
         try:
-            resp = requests.get(url)
+            resp = requests.get(url, timeout=10)
             if resp.status_code == 200:
                 card = resp.json()
                 return {
-                    "oracle_text": card.get("oracle_text", ""),
-                    "type_line": card.get("type_line", ""),
-                    "mana_cost": card.get("mana_cost", ""),
+                    "oracle_text": card.get("oracle_text", "") or "",
+                    "type_line": card.get("type_line", "") or "",
+                    "mana_cost": card.get("mana_cost", "") or "",
                 }
         except Exception as exc:  # pragma: no cover - network errors
             print(f"[ERROR] Failed to fetch card from Scryfall: {exc}")
         return None
+
 
 __all__ = [
     "CardMetadata",

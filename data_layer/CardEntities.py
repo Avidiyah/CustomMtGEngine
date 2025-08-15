@@ -8,11 +8,11 @@ requesting data from the Scryfall API when needed.
 
 from __future__ import annotations
 
-from typing import Any, Dict
+from typing import Any, Dict, List
 from dataclasses import dataclass, field
 import os
-
 import json
+
 try:
     import requests
 except Exception:  # pragma: no cover - optional dependency
@@ -38,18 +38,22 @@ class CardDataManager:
 
     def load_cache(self) -> Dict[str, Dict[str, Any]]:
         try:
-            with open(self.cache_file, "r") as f:
+            with open(self.cache_file, "r", encoding="utf-8") as f:
                 return json.load(f)
         except (FileNotFoundError, json.JSONDecodeError):
             return {}
 
     def save_cache(self) -> None:
-        with open(self.cache_file, "w") as f:
-            json.dump(self.cache, f, indent=2)
+        try:
+            with open(self.cache_file, "w", encoding="utf-8") as f:
+                json.dump(self.cache, f, indent=2, ensure_ascii=False)
+        except Exception:
+            # Cache write failures should not crash runtime.
+            pass
 
     def import_cache(self, cache_file: str) -> None:
         try:
-            with open(cache_file, "r") as f:
+            with open(cache_file, "r", encoding="utf-8") as f:
                 external_cache = json.load(f)
             self.cache.update(external_cache)
             self.save_cache()
@@ -79,17 +83,20 @@ class CardDataManager:
     def fetch_from_scryfall(self, card_name: str) -> Dict[str, Any] | None:
         url = f"https://api.scryfall.com/cards/named?exact={card_name}"
         if requests is None:
-            raise RuntimeError(
-                "The 'requests' package is required to fetch cards from Scryfall."
-            )
+            # RUNTIME SAFETY: don't hard-fail when requests isn't installed.
+            print("[WARNING] 'requests' not installed; cannot fetch from Scryfall.")
+            return None
         try:
-            response = requests.get(url)
+            response = requests.get(url, timeout=10)
             if response.status_code == 200:
                 card_info = response.json()
                 return {
-                    "oracle_text": card_info.get("oracle_text", ""),
-                    "type_line": card_info.get("type_line", ""),
-                    "mana_cost": card_info.get("mana_cost", ""),
+                    "oracle_text": card_info.get("oracle_text", "") or "",
+                    "type_line": card_info.get("type_line", "") or "",
+                    "mana_cost": card_info.get("mana_cost", "") or "",
+                    # Pass through P/T if available; Card will coerce below.
+                    "power": card_info.get("power", None),
+                    "toughness": card_info.get("toughness", None),
                 }
             return None
         except Exception as e:  # pragma: no cover - network errors
@@ -111,6 +118,13 @@ _card_data_manager = CardDataManager(cache_file=_cache_file)
 _card_data_manager.import_cache(_cache_file)
 
 
+def _coerce_int(val: Any, default: int = 0) -> int:
+    try:
+        return int(val)
+    except Exception:
+        return default
+
+
 @dataclass
 class Card:
     """Representation of a Magic card and its parsed attributes."""
@@ -120,8 +134,12 @@ class Card:
     type_line: str = ""
     mana_cost: str = ""
     behavior_tree: Dict[str, Any] = field(default_factory=dict)
-    static_ability_tags: list[str] = field(default_factory=list)
+    static_ability_tags: List[str] = field(default_factory=list)
     data: Dict[str, Any] = field(default_factory=dict)
+
+    # RUNTIME SAFETY: add commonly-referenced combat fields with defaults.
+    power: int = 0
+    toughness: int = 0
 
     def __post_init__(self) -> None:
         card_data = _card_data_manager.get_card(self.name)
@@ -131,9 +149,15 @@ class Card:
         self.data = card_data or {}
 
         if card_data:
-            self.oracle_text = card_data.get("oracle_text", "")
-            self.type_line = card_data.get("type_line", "")
-            self.mana_cost = card_data.get("mana_cost", "")
+            self.oracle_text = card_data.get("oracle_text", "") or ""
+            self.type_line = card_data.get("type_line", "") or ""
+            self.mana_cost = card_data.get("mana_cost", "") or ""
+
+            # Coerce P/T if present in cache/API
+            if "power" in card_data:
+                self.power = _coerce_int(card_data.get("power"), default=self.power)
+            if "toughness" in card_data:
+                self.toughness = _coerce_int(card_data.get("toughness"), default=self.toughness)
         else:
             print(f"[WARNING] Failed to load card data for: {self.name}")
 

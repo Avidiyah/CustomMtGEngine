@@ -1,7 +1,10 @@
 # ui_simulator/GameUI.py
-from typing import Optional
-from game_core import GameManager, GameState, Player
-from stack_system import Spell
+from __future__ import annotations
+
+from game_core.GameManager import GameManager
+from game_core.GameState import GameState
+from game_core.Player import Player
+from stack_system.StackEngine import Spell
 
 
 class GameUI:
@@ -78,13 +81,14 @@ class GameUI:
             # End-of-phase housekeeping
             if not self.game_state.stack.is_empty():
                 self.game_state.resolve_stack()
-            if self.manager.trigger_engine:
-                self.manager.trigger_engine.check_and_push(self.game_state, self.manager.stack)
+
+            # Safe trigger check (in case manager doesn't expose trigger_engine/stack)
+            trig = getattr(self.manager, "trigger_engine", None)
+            mgr_stack = getattr(self.manager, "stack", None)
+            if trig and mgr_stack:
+                trig.check_and_push(self.game_state, mgr_stack)
+
             self.game_state.check_state_based_actions()
 
             # Advance phase; roll turn on Cleanup
-            self.manager.phase_manager.next_phase(self.game_state)
-            if phase == "Cleanup":
-                # Next player's turn
-                self.manager.turn_player_index = (self.manager.turn_player_index + 1) % len(self.manager.players)
-                self.game_state.next_turn()
+            # RUNTIME FIX: SimplePhaseManager.next_phase() expects_

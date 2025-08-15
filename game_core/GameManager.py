@@ -1,7 +1,7 @@
 # === GameManager ===
 from .PriorityManager import PriorityManager
 from stack_system.TriggerEngine import TriggerEngine
-from stack_system import StackEngine
+from stack_system.StackEngine import StackEngine
 
 
 from .StateMemoryTracker import StateMemoryTracker

@@ -1,7 +1,8 @@
 # ui_simulator/MainRunner.py
 from typing import List
-from game_core import Player, GameManager, GameState
-from stack_system import StackEngine, TriggerEngine, PriorityManager
+from game_core import Player, GameManager, GameState, PriorityManager
+from stack_system.StackEngine import StackEngine
+from stack_system.TriggerEngine import TriggerEngine
 from ui_simulator.Simulator import Simulator
 from ui_simulator.GameUI import GameUI
 

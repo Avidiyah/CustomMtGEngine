@@ -3,7 +3,6 @@ from __future__ import annotations
 
 from typing import Any, List, Optional
 
-# --- Fixed imports: import concrete modules, not packages ------------------
 from game_core.Player import Player
 from game_core.GameState import GameState
 from stack_system.StackEngine import StackEngine
@@ -11,12 +10,11 @@ from stack_system.TriggerEngine import TriggerEngine
 from data_layer.CardEntities import Card, CardDataManager
 from effect_execution.EffectEngine import EffectEngine
 
-# CombatEngine location: prefer root-level CombatEngine.py; fall back if needed.
+# Prefer root-level CombatEngine.py; fall back to package if present there.
 try:
     from CombatEngine import CombatEngine  # root-level file
-except ImportError:  # optional fallback if your tree uses a package folder
+except ImportError:
     from combat_engine.CombatEngine import CombatEngine
-# -------------------------------------------------------------------------
 
 
 class Simulator:
@@ -41,52 +39,39 @@ class Simulator:
         for name in deck_list:
             data = self.card_cache.get_card_data(name)
 
-            # Prefer commonly available Scryfall-style fields:
+            # If lookup fails, create a minimal placeholder card and continue.
+            if data is None:
+                card = Card(name=name)
+                player.library.append(card)
+                continue
+
+            # Extract common fields safely
             type_line = str(data.get("type_line", ""))
             oracle_text = str(data.get("oracle_text", ""))
 
-            # Coerce P/T safely (handles str, None, etc.)
-            power = _to_int(data.get("power"), default=0)
-            toughness = _to_int(data.get("toughness"), default=0)
-
-            # Construct Card defensively to match whatever constructor your Card has.
-            # Try most complete signature first, then gracefully degrade.
-            card = None
+            # Construct Card using only supported args.
+            # (Do not pass power/toughness in constructor.)
             try:
-                # Common modern signature
                 card = Card(
                     name=data.get("name", name),
                     type_line=type_line,
                     oracle_text=oracle_text,
-                    power=power,
-                    toughness=toughness,
                 )
             except TypeError:
-                try:
-                    # Older/lean signatures without P/T in __init__
-                    card = Card(
-                        name=data.get("name", name),
-                        type_line=type_line,
-                        oracle_text=oracle_text,
-                    )
-                    # Set P/T if attributes exist
-                    if hasattr(card, "power"):
-                        setattr(card, "power", power)
-                    if hasattr(card, "toughness"):
-                        setattr(card, "toughness", toughness)
-                except TypeError:
-                    # Minimal fallback (name only), then set attributes if present
-                    card = Card(name=data.get("name", name))
-                    if hasattr(card, "type_line"):
-                        setattr(card, "type_line", type_line)
-                    if hasattr(card, "oracle_text"):
-                        setattr(card, "oracle_text", oracle_text)
-                    if hasattr(card, "power"):
-                        setattr(card, "power", power)
-                    if hasattr(card, "toughness"):
-                        setattr(card, "toughness", toughness)
+                # Minimal fallback if Card signature is even leaner.
+                card = Card(name=data.get("name", name))
+                if hasattr(card, "type_line"):
+                    setattr(card, "type_line", type_line)
+                if hasattr(card, "oracle_text"):
+                    setattr(card, "oracle_text", oracle_text)
 
-            # If your Card uses 'types' instead of 'type_line' and data provides it
+            # Set P/T only if those attributes exist on Card.
+            if hasattr(card, "power"):
+                setattr(card, "power", _to_int(data.get("power"), default=getattr(card, "power")))
+            if hasattr(card, "toughness"):
+                setattr(card, "toughness", _to_int(data.get("toughness"), default=getattr(card, "toughness")))
+
+            # If your Card uses a 'types' attribute and data has it, set it defensively.
             if hasattr(card, "types") and "types" in data:
                 try:
                     setattr(card, "types", list(data["types"]))
@@ -94,7 +79,7 @@ class Simulator:
                     pass
 
             player.library.append(card)
-        # Simple shuffle omitted for determinism in smoke runs.
+        # Shuffle intentionally omitted for determinism in smoke runs.
 
     def simulate_phase(self, phase: str) -> None:
         """

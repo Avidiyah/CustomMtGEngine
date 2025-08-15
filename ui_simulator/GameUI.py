@@ -91,4 +91,9 @@ class GameUI:
             self.game_state.check_state_based_actions()
 
             # Advance phase; roll turn on Cleanup
-            # RUNTIME FIX: SimplePhaseManager.next_phase() expects_
+            # RUNTIME FIX: SimplePhaseManager.next_phase() expects no arguments
+            self.manager.phase_manager.next_phase()
+            if phase == "Cleanup":
+                # Next player's turn
+                self.manager.turn_player_index = (self.manager.turn_player_index + 1) % len(self.manager.players)
+                self.game_state.next_turn()
